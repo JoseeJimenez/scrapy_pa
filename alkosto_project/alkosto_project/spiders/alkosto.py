@@ -1,18 +1,17 @@
 import scrapy
 from scrapy_playwright.page import PageMethod
+from alkosto_project.items import AlkostoProjectItem # Importamos el item
+import sys
+import asyncio
+
+if sys.platform == 'win32':
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 class AlkostoSpider(scrapy.Spider):
     name = 'alkosto'
     
-    custom_settings = {
-        'USER_AGENT': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-        'PLAYWRIGHT_DEFAULT_NAVIGATION_TIMEOUT': 120000,
-        'ROBOTSTXT_OBEY': False, 
-    }
-
     def start_requests(self):
         url = 'https://www.alkosto.com/computadores-tablet/c/BI_COMP_ALKOS'
-        
         load_more_script = """
         async () => {
             while (true) {
@@ -20,7 +19,6 @@ class AlkostoSpider(scrapy.Spider):
                 if (button && !button.disabled && button.offsetParent !== null) {
                     button.scrollIntoView();
                     button.click();
-                    // Espera generosa para que Algolia renderice los precios nuevos
                     await new Promise(r => setTimeout(r, 3500));
                 } else {
                     break;
@@ -28,7 +26,6 @@ class AlkostoSpider(scrapy.Spider):
             }
         }
         """
-
         yield scrapy.Request(
             url,
             meta={
@@ -45,32 +42,23 @@ class AlkostoSpider(scrapy.Spider):
 
     def parse(self, response):
         productos = response.css('li.ais-InfiniteHits-item')
-        
-        self.logger.info(f" Procesando {len(productos)} productos encontrados.")
-
         for p in productos:
+            item = AlkostoProjectItem() # Instanciamos el Item
+            
             nombre = p.css('.js-algolia-product-title::text').get() or p.css('h3::text').get()
-            
-           
-            precio_raw = (
-                p.css('span.price::text').get() or 
-                p.css('.ais-hit--price::text').get() or 
-                p.xpath('.//span[contains(@class, "price")]//text()').get()
-            )
-            
+            precio_raw = p.css('span.price::text').get() or p.css('.ais-hit--price::text').get()
             link = p.css('a::attr(href)').get()
 
             if nombre:
-                yield {
-                    'nombre': nombre.strip(),
-                    'precio': self.limpiar_precio(precio_raw),
-                    'enlace': response.urljoin(link) if link else None,
-                    'tienda': 'Alkosto'
-                }
+                valor_numerico = self.limpiar_precio(precio_raw)
+                item['nombre'] = nombre.strip()
+                item['precio'] = f"{valor_numerico:,.0f}".replace(",", ".") + " COP"
+                item['enlace'] = response.urljoin(link) if link else None
+                item['tienda'] = 'Alkosto'
+                yield item # Enviamos el Item al Pipeline
 
     def limpiar_precio(self, texto):
         if texto:
             solo_numeros = ''.join(filter(str.isdigit, str(texto)))
-            if solo_numeros:
-                return int(solo_numeros)
+            return int(solo_numeros) if solo_numeros else 0
         return 0
