@@ -29,6 +29,8 @@ def should_abort_request(request):
 
 PLAYWRIGHT_ABORT_REQUEST = should_abort_request
 
+PLAYWRIGHT_DEFAULT_NAVIGATION_TIMEOUT = 120000 
+
 BOT_NAME = "alkosto_project"
 
 SPIDER_MODULES = ["alkosto_project.spiders"]
