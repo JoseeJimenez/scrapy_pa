@@ -1,3 +1,3 @@
-"# Scraper de Tecnologia Colombia, alkostoo"
+"# Scraper de alkostoo"
 
 

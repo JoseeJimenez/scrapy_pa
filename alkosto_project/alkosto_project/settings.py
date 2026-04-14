@@ -8,18 +8,16 @@
 #     https://docs.scrapy.org/en/latest/topics/spider-middleware.html
 
 
-# Habilitar el manejador de descargas de Playwright
+
 DOWNLOAD_HANDLERS = {
     "http": "scrapy_playwright.handler.ScrapyPlaywrightDownloadHandler",
     "https": "scrapy_playwright.handler.ScrapyPlaywrightDownloadHandler",
 }
 
-# Playwright usa asyncio, así que necesitamos este reactor
 TWISTED_REACTOR = "twisted.internet.asyncioreactor.AsyncioSelectorReactor"
 
-# Opciones del navegador (True para que sea invisible y rápido)
 PLAYWRIGHT_LAUNCH_OPTIONS = {
-    "headless": True, # Cámbialo a False si quieres ver el navegador abriéndose
+    "headless": True, 
     "args": [
         "--disable-blink-features=AutomationControlled",
     ],
