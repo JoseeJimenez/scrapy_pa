@@ -14,14 +14,11 @@ class AlkostoPipeline:
         spider.logger.info("Conexión con MongoDB Atlas cerrada")
 
     def process_item(self, item, spider):
-        coleccion = self.db[spider.name] 
-        
-        # Convierte el Item a un diccionario de Python
+        coleccion = self.db[spider.name]
         linea = ItemAdapter(item).asdict()
-        
-        # Actualiza si existe (por enlace), si no existe lo crea (upsert=True)
+
         coleccion.update_one(
-            {"enlace": linea["enlace"]}, 
+            {"nombre": linea["nombre"]},  # busca por nombre en vez de enlace
             {"$set": linea},
             upsert=True
         )
