@@ -7,6 +7,28 @@
 #     https://docs.scrapy.org/en/latest/topics/downloader-middleware.html
 #     https://docs.scrapy.org/en/latest/topics/spider-middleware.html
 
+
+# Habilitar el manejador de descargas de Playwright
+DOWNLOAD_HANDLERS = {
+    "http": "scrapy_playwright.handler.ScrapyPlaywrightDownloadHandler",
+    "https": "scrapy_playwright.handler.ScrapyPlaywrightDownloadHandler",
+}
+
+# Playwright usa asyncio, así que necesitamos este reactor
+TWISTED_REACTOR = "twisted.internet.asyncioreactor.AsyncioSelectorReactor"
+
+# Opciones del navegador (True para que sea invisible y rápido)
+PLAYWRIGHT_LAUNCH_OPTIONS = {
+    "headless": True, # Cámbialo a False si quieres ver el navegador abriéndose
+    "args": [
+        "--disable-blink-features=AutomationControlled",
+    ],
+}
+def should_abort_request(request):
+    return request.resource_type in ["image", "font", "media"]
+
+PLAYWRIGHT_ABORT_REQUEST = should_abort_request
+
 BOT_NAME = "alkosto_project"
 
 SPIDER_MODULES = ["alkosto_project.spiders"]
@@ -16,15 +38,14 @@ ADDONS = {}
 
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
-#USER_AGENT = "alkosto_project (+http://www.yourdomain.com)"
-
+USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 # Obey robots.txt rules
-ROBOTSTXT_OBEY = True
+ROBOTSTXT_OBEY = False
 
 # Concurrency and throttling settings
 #CONCURRENT_REQUESTS = 16
-CONCURRENT_REQUESTS_PER_DOMAIN = 1
-DOWNLOAD_DELAY = 1
+CONCURRENT_REQUESTS_PER_DOMAIN = 2
+DOWNLOAD_DELAY = 2 
 
 # Disable cookies (enabled by default)
 #COOKIES_ENABLED = False
@@ -84,4 +105,4 @@ DOWNLOAD_DELAY = 1
 #HTTPCACHE_STORAGE = "scrapy.extensions.httpcache.FilesystemCacheStorage"
 
 # Set settings whose default value is deprecated to a future-proof value
-FEED_EXPORT_ENCODING = "utf-8"
+FEED_EXPORT_ENCODING = 'utf-8'

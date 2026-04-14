@@ -1,51 +1,60 @@
 import scrapy
+from scrapy_playwright.page import PageMethod
 
 class AlkostoComputadoresSpider(scrapy.Spider):
     name = 'alkosto_compus'
-    start_urls = ['https://www.alkosto.com/computadores-tablet/c/BI_COMP_ALKOS']
+    
+    def start_requests(self):
+        url = 'https://www.alkosto.com/computadores-tablet/c/BI_COMP_ALKOS'
+        
+        # User agent de un navegador real para evitar bloqueos en Colombia
+        user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
+
+        yield scrapy.Request(
+            url,
+            headers={'User-Agent': user_agent},
+            meta={
+                "playwright": True,
+                "playwright_include_page": True,
+                "playwright_page_methods": [
+                    # Esperar a que la red esté ociosa (fundamental por los logs de JS que viste)
+                    PageMethod("wait_until", "networkidle"),
+                    # Scroll para activar el lazy loading de Alkosto
+                    PageMethod("evaluate", "window.scrollTo(0, document.body.scrollHeight / 2)"),
+                    # Tiempo extra de gracia para que los scripts de Algolia dibujen los items
+                    PageMethod("wait_for_timeout", 8000), 
+                    # Esperar a que el contenedor de productos exista
+                    PageMethod("wait_for_selector", "li[class*='product-item'], .js-algolia-product-item"),
+                ],
+            }
+        )
 
     def parse(self, response):
-        # Cada tarjeta de producto
-        for producto in response.css('li.product__item'):
-            
-            # 1. Información Básica
-            nombre = producto.css('h3.product__item__top__title::text').get()
-            
-            # 2. Precios y Descuentos
-            precio_actual = producto.css('span.price::text').get()
-            precio_original = producto.css('p.product__price--discounts__price span::text').get() # Precio tachado
-            descuento = producto.css('span.product__price--discounts__discount::text').get() # Ejemplo: -37%
+        # Intentamos con el selector específico de Algolia que detectamos en los logs
+        productos = response.css('.js-algolia-product-item')
+        
+        # Si no lo encuentra, probamos con el selector genérico de lista
+        if not productos:
+            productos = response.css('li[class*="product-item"]')
 
-            # 3. EXTRACCIÓN DE LA LISTA TÉCNICA (Lo que me mostraste en la imagen)
-            # Vamos a guardar las specs en un diccionario
-            specs = {}
-            lista_features = producto.css('ul.product_item_information_key_features li.item')
-            
-            for feature in lista_features:
-                clave = feature.css('div.item--key::text').get()
-                valor = feature.css('div.item--value::text').get()
-                if clave and valor:
-                    # Limpiamos los dos puntos ":" si aparecen
-                    clave_limpia = clave.replace(':', '').strip()
-                    specs[clave_limpia] = valor.strip()
+        self.logger.info(f"✅ ANALIZANDO: {len(productos)} productos encontrados en el DOM.")
 
-            yield {
-                'tienda': 'Alkosto',
-                'producto': nombre.strip() if nombre else None,
-                'precio_final': self.limpiar_precio(precio_actual),
-                'precio_base': self.limpiar_precio(precio_original),
-                'descuento': descuento.strip() if descuento else None,
-                'especificaciones': specs, # Aquí queda tu RAM, Disco, etc.
-                'enlace': response.urljoin(producto.css('a::attr(href)').get())
-            }
+        for producto in productos:
+            nombre = producto.css('h3.product__item__top__title::text, h3::text').get()
+            precio_raw = producto.css('span.price::text').get()
+            link = producto.css('a::attr(href)').get()
 
-        # Paginación
-        next_page = response.css('a.pagination__next::attr(href)').get()
-        if next_page:
-            yield response.follow(next_page, callback=self.parse)
+            if nombre:
+                yield {
+                    'tienda': 'Alkosto',
+                    'producto': nombre.strip(),
+                    'precio_final': self.limpiar_precio(precio_raw),
+                    'url': response.urljoin(link) if link else None,
+                }
 
     def limpiar_precio(self, texto):
         if texto:
+            # Elimina todo lo que no sea número para que sea procesable
             solo_numeros = ''.join(filter(str.isdigit, texto))
             return int(solo_numeros) if solo_numeros else 0
-        return None
+        return 0
