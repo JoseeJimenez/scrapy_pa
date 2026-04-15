@@ -1,3 +1,8 @@
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
 BOT_NAME = "alkosto_project"
 SPIDER_MODULES = ["alkosto_project.spiders"]
 NEWSPIDER_MODULE = "alkosto_project.spiders"
@@ -23,7 +28,7 @@ PLAYWRIGHT_ABORT_REQUEST = should_abort_request
 PLAYWRIGHT_DEFAULT_NAVIGATION_TIMEOUT = 120000 
 
 # --- CONFIGURACIÓN DE MONGODB ---
-MONGO_URI = "mongodb+srv://cesarjimenezf_db_user:Cesar0929*@scrapy.5knfwvt.mongodb.net/?appName=Scrapy"
+MONGO_URI = os.getenv("MONGO_URI")
 MONGO_DATABASE = "alkosto_db"
 
 ITEM_PIPELINES = {
