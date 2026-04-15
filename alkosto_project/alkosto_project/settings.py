@@ -1,3 +1,8 @@
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
 BOT_NAME = "alkosto_project"
 SPIDER_MODULES = ["alkosto_project.spiders"]
 NEWSPIDER_MODULE = "alkosto_project.spiders"

@@ -41,6 +41,8 @@ def get_database_name_for_spider(spider):
     return re.sub(r'[^0-9a-zA-Z_]', '_', name)
 
 class AlkostoPipeline:
+    
+    load_dotenv() 
 
     def open_spider(self, spider):
         # Conexión a tu clúster de MongoDB Atlas
