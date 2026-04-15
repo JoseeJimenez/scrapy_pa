@@ -28,8 +28,25 @@ PLAYWRIGHT_ABORT_REQUEST = should_abort_request
 PLAYWRIGHT_DEFAULT_NAVIGATION_TIMEOUT = 120000 
 
 # --- CONFIGURACIÓN DE MONGODB ---
-MONGO_URI = os.getenv("MONGO_URI")
-MONGO_DATABASE = "alkosto_db"
+import os
+import logging
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# MongoDB connection should be provided via environment variables to avoid
+# committing credentials. Set `MONGO_URI` and optionally `MONGO_DATABASE`.
+# By default we use 'AUTO' so each spider creates/uses its own DB unless
+# the env or settings explicitly set a DB name.
+MONGO_URI = os.environ.get('MONGO_URI')
+MONGO_DATABASE = os.environ.get('MONGO_DATABASE', 'AUTO')
+
+# Reduce noisy debug logs from third-party libraries to keep console responsive
+LOG_LEVEL = 'INFO'  # Cambia a 'DEBUG' para más detalles, pero ten cuidado con el rendimiento
+# suppress very verbose logs
+logging.getLogger('pymongo').setLevel(logging.WARNING)
+logging.getLogger('scrapy_playwright').setLevel(logging.WARNING)
+logging.getLogger('playwright').setLevel(logging.WARNING)
 
 ITEM_PIPELINES = {
     'alkosto_project.pipelines.AlkostoPipeline': 300,
