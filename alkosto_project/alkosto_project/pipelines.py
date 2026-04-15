@@ -1,5 +1,6 @@
 from itemadapter import ItemAdapter
 from pymongo import MongoClient
+from dotenv import load_dotenv
 from pymongo.errors import DuplicateKeyError
 from urllib.parse import urlparse
 import os
