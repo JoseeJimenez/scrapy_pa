@@ -11,7 +11,6 @@ class AlkostoSpider(scrapy.Spider):
     name = 'alkosto'
     
     def start_requests(self):
-        # Bucle para recorrer computadores y celulares
         urls = [
             'https://www.alkosto.com/computadores-tablet/c/BI_COMP_ALKOS',
             'https://www.alkosto.com/celulares/smartphones/c/BI_101_ALKOS'
