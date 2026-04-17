@@ -4,7 +4,7 @@ class AlkostoProjectItem(scrapy.Item):
     precio = scrapy.Field()
     enlace = scrapy.Field()
     categoria = scrapy.Field()
-    descripcion = scrapy.Field()
+    marca = scrapy.Field()
     tienda = scrapy.Field()
 class ExitoProjectItem(scrapy.Item):
     nombre = scrapy.Field()
