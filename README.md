@@ -1,3 +1,7 @@
+
+BIBI LEDESMA
+
+
 ## **🛒 Multi-Store Tech Scraper (Alkosto Edition)**
 
  Este proyecto consiste en un web scraper avanzado desarrollado con Python y Scrapy, diseñado para extraer información de productos tecnológicos (Computadores, Celulares y Tablets) de la tienda Alkosto. Utiliza Playwright para gestionar contenido dinámico y carga infinita, almacenando los resultados en una base de datos NoSQL (MongoDB Atlas).
