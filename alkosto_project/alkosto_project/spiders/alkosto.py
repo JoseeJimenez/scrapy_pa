@@ -11,14 +11,15 @@ class AlkostoSpider(scrapy.Spider):
     name = 'alkosto'
     
     def start_requests(self):
-        # URLs actualizadas y verificadas
+        # URLs de las categorías principales
         urls = [
             'https://www.alkosto.com/computadores-tablet/c/BI_COMP_ALKOS',
-            'https://www.alkosto.com/celulares/smartphones/c/BI_101_ALKOS', # Celulares
+            'https://www.alkosto.com/celulares/smartphones/c/BI_101_ALKOS',
             'https://www.alkosto.com/tv-video/televisores/c/BI_120_ALKOS',
             'https://www.alkosto.com/computadores-tablet/impresoras-suministros/c/BI_105_ALKOS'
         ]
         
+        # Script para manejar el scroll infinito y el botón "Cargar más"
         load_more_script = """
         async () => {
             while (true) {
@@ -52,11 +53,15 @@ class AlkostoSpider(scrapy.Spider):
         productos = response.css('li.ais-InfiniteHits-item')
         
         for p in productos:
-            item = AlkostoProjectItem()
             nombre = p.css('.js-algolia-product-title::text').get() or p.css('h3::text').get()
-            
+
             if nombre:
-                # 1. Extracción de Marca (Expandida para que no falle en celulares)
+                item = AlkostoProjectItem()
+                
+                img_url = p.css('img::attr(src)').get() or p.css('img::attr(data-src)').get()
+                item['imagen'] = response.urljoin(img_url) if img_url else None
+                
+                # 2. Extracción de Marca
                 marca_directa = p.css('.product_item_information_brand::text').get()
                 marcas_comunes = [
                     'HP', 'LENOVO', 'ASUS', 'APPLE', 'ACER', 'DELL', 'SAMSUNG', 'LG',
@@ -73,7 +78,7 @@ class AlkostoSpider(scrapy.Spider):
                 else:
                     item['marca'] = "GENÉRICA"
 
-                # 2. Datos básicos
+                # 3. Datos básicos
                 precio_raw = p.css('span.price::text').get() or p.css('.ais-hit--price::text').get()
                 link = p.css('a::attr(href)').get()
                 
@@ -82,8 +87,8 @@ class AlkostoSpider(scrapy.Spider):
                 item['enlace'] = response.urljoin(link) if link else None
                 item['tienda'] = 'Alkosto'
                 
-                # 3. Categorización REFORZADA (Celulares primero para evitar errores)
-                item['categoria'] = self.categorizar(item['nombre'], item['enlace'])
+                # 4. Categorización Corregida
+                item['categoria'] = self.categorizar(item['nombre'], item['enlace'], item['imagen'])
                 
                 yield item
 
@@ -91,20 +96,29 @@ class AlkostoSpider(scrapy.Spider):
         solo_numeros = ''.join(filter(str.isdigit, str(texto or '')))
         return int(solo_numeros) if solo_numeros else 0
 
-    def categorizar(self, nombre, enlace):
+    def categorizar(self, nombre, enlace, imagen):
+        """
+        Clasifica el producto basándose en el texto del nombre y el enlace.
+        """
         t = (str(nombre) + ' ' + str(enlace)).lower()
         
-        # Prioridad 1: Celulares (Palabras clave más específicas)
+        # Prioridad 1: Celulares
         if any(k in t for k in ['celular', 'smartphone', 'iphone', 'telefono', 'teléfono', 'moto g', 'galaxy a']):
             return 'celulares'
         
-        # Prioridad 2: Otras categorías
+        # Prioridad 2: Pantallas / TV
         if any(k in t for k in ['tv', 'televisor', 'monitor', 'pantalla']):
             return 'pantallas'
+        
+        # Prioridad 3: Impresoras
         if any(k in t for k in ['impresora', 'multifuncional', 'epson', 'canon']):
             return 'impresoras'
+        
+        # Prioridad 4: Tablets
         if any(k in t for k in ['tablet', 'tableta', 'ipad']):
             return 'tablets'
+        
+        # Prioridad 5: Computadores
         if any(k in t for k in ['laptop', 'notebook', 'portátil', 'computador', 'pc']):
             return 'computadores'
         

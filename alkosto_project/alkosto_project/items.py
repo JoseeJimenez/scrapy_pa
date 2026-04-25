@@ -1,12 +1,12 @@
 import scrapy
 class AlkostoProjectItem(scrapy.Item):
-    #Atributos del producto
     nombre = scrapy.Field()
     precio = scrapy.Field()
     enlace = scrapy.Field()
     categoria = scrapy.Field()
     marca = scrapy.Field()
     tienda = scrapy.Field()
+    imagen = scrapy.Field()
 class ExitoProjectItem(scrapy.Item):
     nombre = scrapy.Field()
     marca = scrapy.Field()
