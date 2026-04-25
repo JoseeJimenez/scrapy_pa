@@ -25,3 +25,5 @@ Automatización de Navegador: Playwright
 Base de Datos: MongoDB Atlas
 
 Gestión de Eventos: Asyncio (Configurado para compatibilidad con Windows)
+
+##Jose Jimenez
