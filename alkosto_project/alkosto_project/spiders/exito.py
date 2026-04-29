@@ -8,12 +8,12 @@ class ExitoSpider(scrapy.Spider):
     custom_settings = {
         'CONCURRENT_REQUESTS': 1, 
         'DOWNLOAD_DELAY': 2,
-        'DOWNLOAD_TIMEOUT': 60, # Evita que el spider se quede pegado horas
+        'DOWNLOAD_TIMEOUT': 60,
         'PLAYWRIGHT_BROWSER_TYPE': 'chromium',
-        # 'PLAYWRIGHT_LAUNCH_OPTIONS': {"headless": False}, # Cambia a False si quieres ver qué hace el navegador
     }
 
     def start_requests(self):
+        # URL de la categoría tecnología
         url = 'https://www.exito.com/tecnologia'
         yield scrapy.Request(
             url,
@@ -22,24 +22,48 @@ class ExitoSpider(scrapy.Spider):
             errback=self.errback_close_page,
         )
 
+    def _playwright_meta(self):
+        return {
+            "playwright": True,
+            "playwright_include_page": True,
+            "playwright_page_methods": [
+                # Esperar a que los artículos carguen en el DOM
+                PageMethod("wait_for_selector", "article.productCard_productCard__M0677", timeout=15000),
+                
+                # Scroll progresivo para activar el Lazy Load de imágenes y precios
+                PageMethod("evaluate", """
+                    async () => {
+                        const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+                        for (let i = 0; i < document.body.scrollHeight; i += 1200) {
+                            window.scrollTo(0, i);
+                            await delay(200); 
+                        }
+                        window.scrollTo(0, 0);
+                        await delay(500);
+                    }
+                """),
+                
+                # Tiempo extra para que el renderizado de etiquetas de descuento termine
+                PageMethod("wait_for_timeout", 3000), 
+            ],
+        }
+
     def parse(self, response):
-        # Seleccionamos todos los contenedores de productos
+        # Seleccionamos todos los contenedores de productos basados en la clase observada
         productos = response.css('article.productCard_productCard__M0677')
         
-        self.logger.info(f"Se encontraron {len(productos)} productos en la página actual.")
+        self.logger.info(f"Se encontraron {len(productos)} productos en esta página.")
 
         for p in productos:
             item = self._extraer_producto(p, response)
             if item['nombre']:
                 yield item
 
-        # Lógica de Paginación mejorada
-        # Buscamos el botón "Siguiente" por el atributo aria-label o la clase
+        # Lógica de Paginación
         next_page = response.css('a[aria-label="Siguiente"]::attr(href)').get() or \
                     response.css('a.Pagination_nextPreviousLink__f7_2J::attr(href)').get()
         
         if next_page:
-            self.logger.info(f"Navegando a la siguiente página: {next_page}")
             yield scrapy.Request(
                 response.urljoin(next_page),
                 meta=self._playwright_meta(),
@@ -47,60 +71,48 @@ class ExitoSpider(scrapy.Spider):
                 errback=self.errback_close_page,
             )
 
-    def _playwright_meta(self):
-        return {
-            "playwright": True,
-            "playwright_include_page": True,
-            "playwright_page_methods": [
-                # 1. Esperar a que el esqueleto de la página cargue
-                PageMethod("wait_for_selector", "article.productCard_productCard__M0677", timeout=15000),
-                
-                # 2. Scroll quirúrgico: baja rápido pero con pausas para disparar el lazy load
-                PageMethod("evaluate", """
-                    async () => {
-                        const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-                        for (let i = 0; i < document.body.scrollHeight; i += 1200) {
-                            window.scrollTo(0, i);
-                            await delay(150); 
-                        }
-                        window.scrollTo(0, 0);
-                        await delay(500);
-                    }
-                """),
-                
-                # 3. Pausa final de renderizado
-                PageMethod("wait_for_timeout", 3000), 
-            ],
-        }
-
     def _extraer_producto(self, p, response):
         item = ExitoProjectItem()
         
-        # Nombre y Marca
-        item['nombre'] = p.css('h3.styles_name__qQJiK::text').get()
-        item['marca'] = p.css('h3.styles_brand__IdJcB::text').get()
+        # 1. Identificación básica (Nombre y Marca)
+        item['nombre'] = p.css('h3[class*="styles_name"]::text').get()
+        item['marca'] = p.css('h3[class*="styles_brand"]::text').get()
         
-        # Precio con fallback
-        precio_raw = p.css('div.styles_price__S9_q3::text').get() or \
-                     p.css('p[data-fs-container-price-others="true"]::text').get()
-        
-        valor_limpio = self.limpiar_precio(precio_raw)
-        item['precio'] = self._formatear_precio(valor_limpio)
+        # 2. Extracción de Descuento
+        # Buscamos el texto dentro del span con data-percentage
+        dto = p.css('span[data-percentage="true"]::text').get() or \
+              p.xpath('.//span[contains(@data-percentage, "true")]//text()').get()
+        item['descuento'] = dto.strip() if dto else "0%"
 
-        # Lógica de Imagen (Priorizando vtexassets)
+        # 3. Lógica Robusta de Precios (Evita el error de precio: null)
+        # Buscamos todos los textos que contengan el símbolo "$"
+        precios_encontrados = p.xpath('.//*[contains(text(), "$")]/text()').getall()
+        valores = []
+        for texto in precios_encontrados:
+            num = self.limpiar_precio(texto)
+            if num > 1000: # Filtrar basura del DOM que no sean precios reales
+                valores.append(num)
+        
+        if valores:
+            # El valor más alto es el precio original, el más bajo es la oferta
+            item['precio'] = self._formatear_precio(max(valores))
+            item['promocion'] = self._formatear_precio(min(valores))
+        else:
+            item['precio'] = "Precio no disponible"
+            item['promocion'] = "Precio no disponible"
+
+        # 4. Limpieza de Imagen (Filtra logos de envío y placeholders)
         img_url = p.css('img[src*="vtexassets"]::attr(src)').get() or \
                   p.css('img[data-src*="vtexassets"]::attr(data-src)').get() or \
-                  p.css('div.styles_productCardImage__RBIdI img::attr(src)').get()
-
-        # Limpieza de URL de imagen
+                  p.css('img[class*="productCard"]::attr(src)').get()
+        
         if img_url:
             if img_url.startswith('//'):
                 img_url = 'https:' + img_url
-            # Si es un logo de envío o similar, intentamos buscar más profundo
-            if any(x in img_url.lower() for x in ['envio', 'logo', 'placeholder']):
-                alt_img = p.xpath('.//img[contains(@src, "vtexassets")]/@src').get()
-                if alt_img:
-                    img_url = 'https:' + alt_img if alt_img.startswith('//') else alt_img
+            # Si capturó un logo de envío, intentamos buscar una imagen alternativa en el mismo bloque
+            if "envio" in img_url.lower() or "logo" in img_url.lower():
+                alt = p.xpath('.//img[contains(@src, "vtexassets")]/@src').get()
+                if alt: img_url = 'https:' + alt if alt.startswith('//') else alt
 
         item['imagen'] = img_url
         item['enlace'] = response.urljoin(p.css('a::attr(href)').get())
