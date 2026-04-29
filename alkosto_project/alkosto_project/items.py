@@ -18,4 +18,4 @@ class ExitoProjectItem(scrapy.Item):
     patrocinado = scrapy.Field()
     categoria = scrapy.Field()
     tienda = scrapy.Field()
-    
+    #bibi#
