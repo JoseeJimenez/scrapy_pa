@@ -19,3 +19,12 @@ class ExitoProjectItem(scrapy.Item):
     categoria = scrapy.Field()
     tienda = scrapy.Field()
     #bibi#
+class CompulagoItem(scrapy.Item):
+    nombre    = scrapy.Field()
+    precio    = scrapy.Field()
+    marca     = scrapy.Field()
+    categoria = scrapy.Field()
+    enlace    = scrapy.Field()
+    imagen    = scrapy.Field()
+    tienda    = scrapy.Field()
+ 
