@@ -99,7 +99,7 @@ class AlkostoPipeline:
             if enlace:
                 try:
                     p = urlparse(enlace)
-                    enlace_normalized = f"{p.scheme}://{p.netloc}{p.path}"
+                    enlace_normalized = f"{p.scheme}://{p.netloc}{p.path}?{p.query}"
                     linea['enlace_normalized'] = enlace_normalized
                 except Exception:
                     enlace_normalized = enlace
