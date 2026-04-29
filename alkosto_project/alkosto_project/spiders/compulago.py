@@ -20,6 +20,8 @@ class CompulagoSpider(scrapy.Spider):
         'COMPUMAX', 'INTEL', 'INFINIX', 'NUBIA', 'JALTECH', 'ESENSES', 'IORA',
         'POWER GROUP', 'CHALLENGER', 'SANKEY', 'HYUNDAI', 'HISENSE', 'TCL',
         'KALLEY', 'PANASONIC', 'SHARP', 'PHILIPS',
+        'JBL', 'BOSE', 'STEREN', 'MARSHALL', 'HARMAN', 'PIONEER', 'YAMAHA',
+        'EDIFIER', 'CREATIVE', 'ANKER', 'BEATS', 'KLIPSCH',
     ]
 
     URLS = [
@@ -33,6 +35,7 @@ class CompulagoSpider(scrapy.Spider):
         ('https://compulago.com/categoria/pc-escritorio-corporativo/pc-clon-completo-corporativo-hogar/', 'computadores'),
         ('https://compulago.com/categoria/pc-escritorio-corporativo/pc-clon-cpu/',                        'computadores'),
         ('https://compulago.com/categoria/pc-escritorio-corporativo/pc-de-marca-corporativo/',            'computadores'),
+        ('https://compulago.com/categoria/parlantes/',                                                         'audio'),
     ]
 
     load_more_script = """
