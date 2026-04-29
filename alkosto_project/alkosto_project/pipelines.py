@@ -11,6 +11,7 @@ SPIDER_DB_MAP = {
     'alkosto': 'alkosto',
     'exito': 'exito',
     'compulago': 'compulago',
+    'compuworking': 'computerworking',
 }
 
 
