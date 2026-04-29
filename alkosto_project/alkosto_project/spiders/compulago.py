@@ -18,14 +18,16 @@ class CompulagoSpider(scrapy.Spider):
         'KALLEY', 'VIVO', 'BROTHER', 'XEROX', 'RICOH', 'KYOCERA',
         'SONY', 'VIEWSONIC', 'BENQ', 'AOC', 'LOGITECH', 'GARMIN', 'MSI',
         'COMPUMAX', 'INTEL', 'INFINIX', 'NUBIA', 'JALTECH', 'ESENSES', 'IORA',
-        'POWER GROUP',
+        'POWER GROUP', 'CHALLENGER', 'SANKEY', 'HYUNDAI', 'HISENSE', 'TCL',
+        'KALLEY', 'PANASONIC', 'SHARP', 'PHILIPS',
     ]
 
-    # (url_slug, categoria_fija)  — None = decidir por nombre
     URLS = [
         ('https://compulago.com/categoria/portatiles/',                                                    'computadores'),
-        ('https://compulago.com/categoria/tablets-y-celulares-corporativo/',                               None),
-        ('https://compulago.com/categoria/imagen-y-video-corporativo/',                                    'pantallas'),
+        ('https://compulago.com/categoria/tablets-y-celulares-corporativo/tablets-corporativo/',           'tablets'),
+        ('https://compulago.com/categoria/tablets-y-celulares-corporativo/celulares/',                     'celulares'),
+        ('https://compulago.com/categoria/imagen-y-video-corporativo/televisores/',                        'pantallas'),
+        ('https://compulago.com/categoria/pc-utilitarios/monitores-corporativo/',                          'pantallas'),
         ('https://compulago.com/categoria/impresoras-corporativo/',                                        'impresoras'),
         ('https://compulago.com/categoria/pc-escritorio-corporativo/pc-todo-en-uno-corporativo/',          'computadores'),
         ('https://compulago.com/categoria/pc-escritorio-corporativo/pc-clon-completo-corporativo-hogar/', 'computadores'),
@@ -33,7 +35,6 @@ class CompulagoSpider(scrapy.Spider):
         ('https://compulago.com/categoria/pc-escritorio-corporativo/pc-de-marca-corporativo/',            'computadores'),
     ]
 
-    # Hace clic en #button-mas (y variantes) hasta que no aparezcan nuevos productos
     load_more_script = """
     async () => {
         const SELECTORES = [
@@ -42,6 +43,7 @@ class CompulagoSpider(scrapy.Spider):
             '#portatiles2button',
             '#tablets-y-celulares2button',
             '#impresorasbutton',
+            '#monitoresbutton',
             'a.elementor-button-link[href="#"][id]',
         ];
 
@@ -102,54 +104,118 @@ class CompulagoSpider(scrapy.Spider):
     def parse(self, response):
         categoria_fija = response.meta.get('categoria_fija')
 
-        # --- NOMBRES ---
-        enlaces = []
-        vistos = set()
-        for a in response.css('a[href*="/producto/"]'):
-            href   = a.attrib.get('href', '')
-            nombre = ' '.join(a.css('::text').getall()).strip()
-            if href and nombre and href not in vistos:
-                vistos.add(href)
-                enlaces.append({'href': href, 'nombre': nombre})
+        # ── Estructura real confirmada en dev tools ───────────────────────────
+        #
+        # div.e-loop-item                    ← contenedor de cada producto
+        #   div (imagen)
+        #   div (marca - widget heading)
+        #   div.productdescriptioncomputo    ← widget con el nombre + enlace
+        #     div.elementor-widget-container
+        #       p.elementor-heading-title
+        #         a[href*="/producto/"]      ← enlace y nombre
+        #   div (shortcode - descripcion)
+        #   div (precio - widget heading)
+        #     div.elementor-widget-container
+        #       p.elementor-heading-title
+        #         span.woocommerce-Price-amount.amount
+        #           span.woocommerce-Price-currencySymbol  "$"
+        #           "2.365.000"             ← texto del precio
+        #
+        # CLAVE: precio y nombre estan en widgets HERMANOS dentro de e-loop-item.
+        # Al buscar dentro del e-loop-item con .get() ambos quedan vinculados
+        # al mismo producto — sin desincronizacion posible.
+        # ─────────────────────────────────────────────────────────────────────
 
-        # --- PRECIOS: nodo de texto con dígitos dentro del span ---
-        precios = []
-        for span in response.css('span.woocommerce-Price-amount.amount'):
-            textos = span.css('::text').getall()
-            numero = next((t.strip() for t in textos if re.search(r'\d', t)), None)
-            precios.append(numero)
+        productos = (
+            response.css('div.e-loop-item')        # confirmado en dev tools (imagen 4)
+            or response.css('div[class*="e-loop-item"]')
+            or response.css('div.e-con.e-child')   # fallback Elementor container hijo
+            or response.css('article.product')
+            or response.css('li.product')
+        )
 
-        # --- IMAGENES ---
-        imagenes = response.css('div.jet-woo-product-thumbs__inner img:first-of-type')
+        # Quedarse solo con los que tienen enlace a producto real
+        productos = [p for p in productos if p.css('a[href*="/producto/"]')]
 
         self.logger.info(
             f'[Compulago] {response.url} — '
-            f'nombres:{len(enlaces)} precios:{len(precios)} imgs:{len(imagenes)}'
+            f'categoria={categoria_fija} | productos={len(productos)}'
         )
 
-        for i, enlace in enumerate(enlaces):
-            precio_raw = precios[i]  if i < len(precios)  else None
-            img_url    = imagenes[i].attrib.get('src') if i < len(imagenes) else None
+        if not productos:
+            clases = [s.attrib.get('class', '') for s in response.css('div[class]')[:25]]
+            self.logger.warning(
+                f'[Compulago] {response.url} — SIN CONTENEDORES. '
+                f'Primeras clases div: {clases}'
+            )
+            return
 
-            nombre_upper = enlace['nombre'].upper()
-            marca = next((m for m in self.MARCAS_COMUNES if m in nombre_upper), 'GENERICA')
+        vistos = set()
 
-            if categoria_fija:
-                categoria = categoria_fija
-            else:
-                categoria = self._categorizar_por_nombre(enlace['nombre'], enlace['href'])
+        for producto in productos:
+            # ── Enlace y nombre ───────────────────────────────────────────────
+            # Dentro de div.productdescriptioncomputo > p.elementor-heading-title > a
+            # Usamos el selector mas especifico primero; si no existe, cualquier
+            # a[href*="/producto/"] dentro del contenedor del producto.
+            a_tag = (
+                producto.css('div[class*="productdescription"] a[href*="/producto/"]')
+                or producto.css('p.elementor-heading-title a[href*="/producto/"]')
+                or producto.css('a[href*="/producto/"]')
+            )
+            if not a_tag:
+                continue
+
+            href = a_tag.attrib.get('href', '')
+            if not href or href in vistos:
+                continue
+            vistos.add(href)
+
+            nombre = ' '.join(a_tag.css('::text').getall()).strip()
+            if not nombre:
+                continue
+
+            # ── Imagen ────────────────────────────────────────────────────────
+            # .get() devuelve la primera imagen del contenedor (principal),
+            # ignorando la imagen hover que va segunda en el DOM
+            img_url = (
+                producto.css('div.jet-woo-product-thumbs__inner img::attr(src)').get()
+                or producto.css('img.attachment-full.size-full::attr(src)').get()
+                or producto.css('img.wp-post-image::attr(src)').get()
+                or producto.css('img::attr(src)').get()
+            )
+
+            # ── Precio ────────────────────────────────────────────────────────
+            # span.woocommerce-Price-amount.amount esta dentro del ultimo
+            # widget heading del e-loop-item (hermano del widget de nombre).
+            # Al buscarlo dentro del mismo contenedor e-loop-item siempre
+            # corresponde al precio de ese producto especifico.
+            precio_raw   = self._extraer_precio(producto)
+            nombre_upper = nombre.upper()
+            marca        = next((m for m in self.MARCAS_COMUNES if m in nombre_upper), 'GENERICA')
+            categoria    = categoria_fija or self._categorizar_por_nombre(nombre, href)
 
             item = CompulagoItem()
-            item['nombre']    = enlace['nombre']
+            item['nombre']    = nombre
             item['precio']    = self._formatear_precio(precio_raw)
             item['marca']     = marca
             item['categoria'] = categoria
-            item['enlace']    = enlace['href']
+            item['enlace']    = href
             item['imagen']    = img_url or None
             item['tienda']    = 'Compulago'
             yield item
 
-    # ------------------------------------------------------------------
+    # -------------------------------------------------------------------------
+    def _extraer_precio(self, nodo):
+        """Extrae el precio numerico del span WooCommerce dentro del nodo."""
+        for span in nodo.css('span.woocommerce-Price-amount.amount'):
+            # El texto del precio es el texto directo del span (no del hijo
+            # woocommerce-Price-currencySymbol que contiene el simbolo "$")
+            textos = span.css('::text').getall()
+            numero = next((t.strip() for t in textos if re.search(r'\d', t)), None)
+            if numero:
+                return numero
+        return None
+
     def _formatear_precio(self, texto):
         if not texto:
             return 'N/D'
@@ -159,9 +225,9 @@ class CompulagoSpider(scrapy.Spider):
         return f"{int(solo_numeros):,}".replace(",", ".") + " COP"
 
     def _categorizar_por_nombre(self, nombre, enlace):
-        """Solo se llama cuando categoria_fija es None (ej: tablets-y-celulares)."""
+        """Fallback — solo se usa si una URL no tiene categoria_fija."""
         t = (nombre + ' ' + enlace).lower()
-        if any(k in t for k in ['tablet', 'tableta', 'ipad', ' tab ']):
+        if any(k in t for k in ['tablet', 'tableta', 'ipad', ' tab ', 'tb3', 'tb5', 'tb7', 'tb9']):
             return 'tablets'
         if any(k in t for k in ['celular', 'smartphone', 'iphone', 'moto ',
                                   'galaxy', 'redmi', 'note ']):
