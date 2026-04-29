@@ -7,17 +7,17 @@ class AlkostoProjectItem(scrapy.Item):
     marca = scrapy.Field()
     tienda = scrapy.Field()
     imagen = scrapy.Field()
+
+
 class ExitoProjectItem(scrapy.Item):
     nombre = scrapy.Field()
     marca = scrapy.Field()
     precio = scrapy.Field()
-    precio_promocion = scrapy.Field()
-    specs = scrapy.Field()
+    promocion = scrapy.Field()   
     enlace = scrapy.Field()
-    vendedor = scrapy.Field()
-    patrocinado = scrapy.Field()
     categoria = scrapy.Field()
     tienda = scrapy.Field()
+<<<<<<< HEAD
     #bibi#
 class CompulagoItem(scrapy.Item):
     nombre    = scrapy.Field()
@@ -28,3 +28,7 @@ class CompulagoItem(scrapy.Item):
     imagen    = scrapy.Field()
     tienda    = scrapy.Field()
  
+=======
+    imagen = scrapy.Field()
+    
+>>>>>>> b0ec4a02555fc7fa49304579383404694b8e1269
