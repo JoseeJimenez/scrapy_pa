@@ -21,13 +21,15 @@ class ExitoProjectItem(scrapy.Item):
     categoria = scrapy.Field()
 
 class CompulagoItem(scrapy.Item):
-    nombre    = scrapy.Field()
-    precio    = scrapy.Field()
-    marca     = scrapy.Field()
-    categoria = scrapy.Field()
-    enlace    = scrapy.Field()
-    imagen    = scrapy.Field()
-    tienda    = scrapy.Field()
+    nombre          = scrapy.Field()
+    precio          = scrapy.Field()   # precio original (puede ser calculado)
+    promocion       = scrapy.Field()   # precio con descuento
+    descuento       = scrapy.Field()   # porcentaje ej: "10%"
+    marca           = scrapy.Field()
+    categoria       = scrapy.Field()
+    enlace          = scrapy.Field()
+    imagen          = scrapy.Field()
+    tienda          = scrapy.Field()
 
 
 class ComputerworkingItem(scrapy.Item):
@@ -39,3 +41,14 @@ class ComputerworkingItem(scrapy.Item):
     tienda = scrapy.Field()
     imagen = scrapy.Field()
  
+class FalabellaItem(scrapy.Item):
+    nombre    = scrapy.Field()
+    precio    = scrapy.Field()   # precio original
+    promocion = scrapy.Field()   # precio con descuento
+    descuento = scrapy.Field()   # porcentaje ej: "44%"
+    marca     = scrapy.Field()
+    categoria = scrapy.Field()
+    enlace    = scrapy.Field()
+    imagen    = scrapy.Field()
+    vendedor  = scrapy.Field()
+    tienda    = scrapy.Field()
