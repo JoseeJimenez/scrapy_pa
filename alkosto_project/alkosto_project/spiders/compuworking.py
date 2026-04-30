@@ -1,27 +1,30 @@
 import scrapy
 from scrapy_playwright.page import PageMethod
 from alkosto_project.items import AlkostoProjectItem
-import sys
 import asyncio
 import platform
 
 if platform.system() == 'win32':
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
-# este spider es el mas duro que todos 99%%
+
 class ComputerworkingSpider(scrapy.Spider):
     name = 'compuworking'
     allowed_domains = ['computerworking.com.co']
 
+    # Orden exacto pedido: computadores, celulares, tablets, pantallas, audio, consolas, impresoras, otros
+    # Cada tupla: (categoria_destino, url_base)
     CATEGORIAS = [
-        ('portatiles',        'https://www.computerworking.com.co/categorias/222/true'),
-        ('computadores',      'https://www.computerworking.com.co/categorias/310/true'),
-        ('accesorios_pc',     'https://www.computerworking.com.co/categorias/169/true'),
-        ('mouse_teclado',     'https://www.computerworking.com.co/categorias/124/true'),
-        ('celulares_tablets', 'https://www.computerworking.com.co/categorias/230/true'),
-        ('televisores',       'https://www.computerworking.com.co/categorias/390/true'),
-        ('audio',             'https://www.computerworking.com.co/categorias/241/true'),
-        ('consolas',          'https://www.computerworking.com.co/categorias/243/true'),
+        ('computadores',  'https://www.computerworking.com.co/categorias/222/true'),   # portatiles -> computadores
+        ('computadores',  'https://www.computerworking.com.co/categorias/310/true'),   # computadores
+        ('accesorios_pc', 'https://www.computerworking.com.co/categorias/169/true'),   # accesorios -> otros
+        ('mouse_teclado', 'https://www.computerworking.com.co/categorias/124/true'),   # mouse/teclado -> otros
+        ('celulares',     'https://www.computerworking.com.co/categorias/230/true'),   # celulares + tablets
+        ('pantallas',     'https://www.computerworking.com.co/categorias/390/true'),   # televisores -> pantallas
+        ('audio',         'https://www.computerworking.com.co/categorias/241/true'),   # audio
+        ('consolas',      'https://www.computerworking.com.co/categorias/243/true'),   # consolas + controles
+        ('impresoras',    'https://www.computerworking.com.co/categorias/9/true'),     # impresoras
+        ('impresoras',    'https://www.computerworking.com.co/categorias/301/true'),   # consumibles impresora
     ]
 
     custom_settings = {
@@ -33,16 +36,15 @@ class ComputerworkingSpider(scrapy.Spider):
     def start_requests(self):
         nombre, url_base = self.CATEGORIAS[0]
         self.logger.info(f'\n{"="*60}')
-        self.logger.info(f'INICIANDO CATEGORIA: {nombre.upper()} (1/{len(self.CATEGORIAS)})')
+        self.logger.info(f'INICIANDO: {url_base} -> [{nombre.upper()}] (1/{len(self.CATEGORIAS)})')
         self.logger.info(f'{"="*60}')
         yield self._make_request(url_base + '/1', nombre, url_base, pagina=1, idx_categoria=0)
 
-    def _make_request(self, url, categoria_nombre, url_base, pagina, idx_categoria):
+    def _make_request(self, url, categoria_destino, url_base, pagina, idx_categoria):
         return scrapy.Request(
             url=url,
             meta={
                 'playwright': True,
-                # Sin playwright_include_page — Scrapy-Playwright cierra la pagina automaticamente
                 'playwright_page_methods': [
                     PageMethod('wait_for_selector', 'div.col-sm-3 div.productBox', timeout=15000),
                     PageMethod('evaluate', """
@@ -55,26 +57,23 @@ class ComputerworkingSpider(scrapy.Spider):
                     """),
                     PageMethod('wait_for_timeout', 3000),
                 ],
-                'categoria_url': categoria_nombre,
-                'url_base': url_base,
-                'pagina': pagina,
-                'idx_categoria': idx_categoria,
+                'categoria_destino': categoria_destino,
+                'url_base':          url_base,
+                'pagina':            pagina,
+                'idx_categoria':     idx_categoria,
             },
             callback=self.parse_category,
             dont_filter=True,
         )
 
     def parse_category(self, response):
-        categoria_url = response.meta['categoria_url']
-        url_base      = response.meta['url_base']
-        pagina        = response.meta['pagina']
-        idx_categoria = response.meta['idx_categoria']
+        categoria_destino = response.meta['categoria_destino']
+        url_base          = response.meta['url_base']
+        pagina            = response.meta['pagina']
+        idx_categoria     = response.meta['idx_categoria']
 
         productos = response.css('div.col-sm-3 div.productBox')
-        self.logger.info(f'Pagina {pagina}: {len(productos)} productos en {categoria_url}')
-
-        if not productos:
-            self.logger.warning(f'Sin productos en {categoria_url} p{pagina}')
+        self.logger.info(f'Pagina {pagina}: {len(productos)} productos [{categoria_destino}]')
 
         for idx, producto in enumerate(productos):
             try:
@@ -91,40 +90,42 @@ class ComputerworkingSpider(scrapy.Spider):
                 precio_raw = (producto.css('div.productCaption h3::text').get('') or
                                producto.css('h3::text').get('') ).strip()
 
+                categoria_final = self.categorizar(nombre, categoria_destino)
+
                 item = AlkostoProjectItem()
                 item['nombre']    = nombre
                 item['precio']    = self.formatear_precio(precio_raw)
                 item['enlace']    = response.urljoin(enlace)
                 item['marca']     = self.extraer_marca(nombre)
                 item['imagen']    = response.urljoin(imagen)
-                item['categoria'] = self.categorizar(nombre, enlace, categoria_url)
+                item['categoria'] = categoria_final
                 item['tienda']    = 'Computerworking'
-                self.logger.info(f'  #{idx} {nombre[:45]} | {item["precio"]}')
+                self.logger.info(f'  #{idx} [{categoria_final}] {nombre[:45]} | {item["precio"]}')
                 yield item
 
             except Exception as e:
                 self.logger.error(f'Error #{idx}: {e}')
 
-        # --- Siguiente pagina de esta misma categoria ---
+        # --- Siguiente pagina de esta misma URL ---
         next_href = response.css('a.next::attr(href)').get()
         if productos and next_href:
             siguiente_pagina = pagina + 1
-            self.logger.info(f'  -> pagina {siguiente_pagina} de {categoria_url}')
+            self.logger.info(f'  -> pagina {siguiente_pagina}')
             yield self._make_request(
                 f"{url_base}/{siguiente_pagina}",
-                categoria_url, url_base,
+                categoria_destino, url_base,
                 pagina=siguiente_pagina,
                 idx_categoria=idx_categoria,
             )
             return
 
-        # --- Categoria terminada: pasar a la siguiente ---
-        self.logger.info(f'CATEGORIA {categoria_url.upper()} COMPLETADA ({pagina} paginas)')
+        # --- URL terminada: pasar a la siguiente ---
+        self.logger.info(f'URL [{categoria_destino}] completada en {pagina} paginas')
         idx_siguiente = idx_categoria + 1
         if idx_siguiente < len(self.CATEGORIAS):
             nombre_sig, url_sig = self.CATEGORIAS[idx_siguiente]
             self.logger.info(f'\n{"="*60}')
-            self.logger.info(f'INICIANDO CATEGORIA: {nombre_sig.upper()} ({idx_siguiente+1}/{len(self.CATEGORIAS)})')
+            self.logger.info(f'INICIANDO: {url_sig} -> [{nombre_sig.upper()}] ({idx_siguiente+1}/{len(self.CATEGORIAS)})')
             self.logger.info(f'{"="*60}')
             yield self._make_request(
                 url_sig + '/1',
@@ -133,7 +134,64 @@ class ComputerworkingSpider(scrapy.Spider):
                 idx_categoria=idx_siguiente,
             )
         else:
-            self.logger.info('TODAS LAS CATEGORIAS COMPLETADAS.')
+            self.logger.info('✅ TODAS LAS CATEGORIAS COMPLETADAS.')
+
+    # ─────────────────────────────────────────────────────────────
+    # Categorización final según las reglas pedidas:
+    #   computadores → computadores y portátiles
+    #   celulares    → solo celulares
+    #   tablets      → solo tablets
+    #   pantallas    → televisores y monitores
+    #   audio        → audio
+    #   consolas     → consolas y controles gamer
+    #   impresoras   → impresoras y consumibles
+    #   otros        → todo lo demás (accesorios, mouse, teclado, sillas, etc.)
+    # ─────────────────────────────────────────────────────────────
+    def categorizar(self, nombre, categoria_destino):
+        n = nombre.lower()
+
+        # --- COMPUTADORES (portátiles + computadores de escritorio) ---
+        if categoria_destino == 'computadores':
+            return 'computadores'
+
+        # --- CELULARES / TABLETS ---
+        if categoria_destino == 'celulares':
+            if any(k in n for k in ('tablet', 'tableta', 'ipad')):
+                return 'tablets'
+            # Accesorios de celular (power bank, selfie, aro de luz, smartwatch, etc.)
+            # van a "otros" porque no son celulares ni tablets como dispositivo
+            if any(k in n for k in (
+                'smartwatch', 'power bank', 'powerbank', 'selfie', 'aro de luz',
+                'panel de luz', 'tripode', 'tripié', 'cargador', 'base para',
+                'smart band', 'control remoto'
+            )):
+                return 'otros'
+            return 'celulares'
+
+        # --- PANTALLAS (televisores, monitores, soportes TV, etc.) ---
+        if categoria_destino == 'pantallas':
+            if any(k in n for k in ('televisor', 'monitor', 'pantalla', 'tv', 'smart tv')):
+                return 'pantallas'
+            # Accesorios TV (soportes, splitters, tv box) -> otros
+            return 'otros'
+
+        # --- AUDIO ---
+        if categoria_destino == 'audio':
+            return 'audio'
+
+        # --- CONSOLAS (consolas + controles gamer) ---
+        if categoria_destino == 'consolas':
+            return 'consolas'
+
+        # --- IMPRESORAS + CONSUMIBLES ---
+        if categoria_destino == 'impresoras':
+            return 'impresoras'
+
+        # --- ACCESORIOS PC / MOUSE-TECLADO -> todos van a "otros" ---
+        if categoria_destino in ('accesorios_pc', 'mouse_teclado'):
+            return 'otros'
+
+        return 'otros'
 
     def formatear_precio(self, texto):
         if not texto:
@@ -164,36 +222,10 @@ class ComputerworkingSpider(scrapy.Spider):
             'INTEL','AMD','RYZEN','CORE','GENIUS','LOGITECH','COUGAR','EASY',
             'FORZA','JAITECH','KAISE','MACSYSTEM','MACON','NICOMAR','POWEST',
             'UNITEC','VARIOS','WACOM','WATTANA','DRACO','DIGITAL','POWER GROUP',
-            'JALTECH','NUC','GAMER','TORRE','MINI PC','HYUNDAI','HISENSE','SONY',
-            'PANASONIC','SHARP','TCL','PHILIPS','SENNHEISER','BOSE','BEATS','JBL',
-            'SKULLCANDY','PLANTRONICS','CORSAIR','RAZER','STEELSERIES','TURTLE BEACH',
+            'JALTECH','NUC','HYUNDAI','HISENSE','SONY','PANASONIC','SHARP','TCL',
+            'PHILIPS','SENNHEISER','BOSE','BEATS','JBL','SKULLCANDY','PLANTRONICS',
+            'CORSAIR','RAZER','STEELSERIES','BROTHER','RICOH','XEROX','KYOCERA',
         ]:
             if m in u:
                 return m
         return 'GENERICA'
-
-    def categorizar(self, nombre, enlace, categoria_url):
-        n = nombre.lower().replace(' ', '')
-        if categoria_url == 'celulares_tablets':
-            return 'tablets' if any(k in n for k in ('tablet','tableta','ipad')) else 'celulares'
-        if categoria_url == 'televisores':
-            return 'pantallas'
-        if categoria_url in ('audio', 'consolas'):
-            return categoria_url
-        if 'gamer' in n:
-            return 'computadores'
-        if categoria_url == 'computadores':
-            return 'computadores'
-        if categoria_url == 'portatiles':
-            return 'portatiles'
-        if any(k in n for k in ('portátil','laptop','notebook')):
-            return 'portatiles'
-        if 'accesorios' in n:
-            return 'accesorios_pc'
-        if any(k in n for k in ('mouse','teclado')):
-            return 'mouse_teclado'
-        if categoria_url == 'accesorios_pc':
-            return 'accesorios_pc'
-        if categoria_url == 'mouse_teclado':
-            return 'mouse_teclado'
-        return 'otros'
