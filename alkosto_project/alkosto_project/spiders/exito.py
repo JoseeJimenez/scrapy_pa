@@ -4,7 +4,7 @@ from alkosto_project.items import ExitoProjectItem
 
 class ExitoSpider(scrapy.Spider):
     name = 'exito'
-    max_pages = 40
+    max_pages = 49
     current_page = 1
     base_url = 'https://www.exito.com/tecnologia?page='
 
