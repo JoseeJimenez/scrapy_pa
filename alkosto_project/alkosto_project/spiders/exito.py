@@ -16,10 +16,9 @@ class ExitoSpider(scrapy.Spider):
         'CONCURRENT_REQUESTS': 1,
         'DOWNLOAD_DELAY': 3,
         'PLAYWRIGHT_BROWSER_TYPE': 'chromium',
-        'CLOSESPIDER_TIMEOUT': 0, # Ayuda a que cierre más limpio en Windows
+        'CLOSESPIDER_TIMEOUT': 0, 
     }
 
-    # Nuevo método recomendado por Scrapy 2.13+
     async def start(self):
         yield self.make_request(self.current_page)
 
@@ -30,11 +29,8 @@ class ExitoSpider(scrapy.Spider):
                 "playwright": True,
                 "playwright_include_page": True,
                 "playwright_page_methods": [
-                    # Espera amplia para evitar el TimeoutError en conexiones lentas
                     PageMethod("wait_for_selector", "article", timeout=60000),
-                    # Scroll para disparar el lazy loading de imágenes y precios
                     PageMethod("evaluate", "window.scrollTo(0, document.body.scrollHeight)"),
-                    # Tiempo de "asentamiento" para que el JS del Éxito renderice los precios reales
                     PageMethod("wait_for_timeout", 10000), 
                 ],
             },
@@ -46,7 +42,6 @@ class ExitoSpider(scrapy.Spider):
     async def parse(self, response):
         page_obj = response.meta["playwright_page"]
         
-        # Extraemos los productos usando selectores CSS y XPath combinados
         productos = response.css('article')
         self.logger.info(f"ÉXITO: Procesando página {self.current_page} de {self.total_pages}")
 
@@ -57,7 +52,6 @@ class ExitoSpider(scrapy.Spider):
 
         await page_obj.close()
 
-        # Lógica de paginación
         if self.current_page < self.total_pages:
             self.current_page += 1
             yield self.make_request(self.current_page)
@@ -72,43 +66,34 @@ class ExitoSpider(scrapy.Spider):
             item['marca'] = p.css('h3[class*="brand"]::text').get('').strip()
             item['enlace'] = response.urljoin(p.css('a::attr(href)').get())
 
-            # --- ESTRATEGIA DE BARRIDO: Traemos todos los textos que tengan "$" ---
             todos_los_precios = p.xpath('.//*[contains(text(), "$")]//text()').getall()
-            # Limpiamos y convertimos a números
             precios_numericos = []
             for texto in todos_los_precios:
                 valor = self.limpiar_precio(texto)
                 if valor > 0:
                     precios_numericos.append(valor)
             
-            # Eliminamos duplicados manteniendo el orden
             precios_numericos = list(dict.fromkeys(precios_numericos))
 
-            # --- LÓGICA DE ASIGNACIÓN SEGÚN LOS VALORES ENCONTRADOS ---
             if len(precios_numericos) >= 2:
-                # Si hay dos o más, el mayor es el normal y el menor es la oferta
                 v_normal = max(precios_numericos)
                 v_oferta = min(precios_numericos)
                 item['precio'] = self._formatear_precio(v_normal)
                 item['promocion'] = self._formatear_precio(v_oferta)
                 item['descuento'] = f"-{round(100 - (v_oferta * 100 / v_normal))}%"
             elif len(precios_numericos) == 1:
-                # Solo hay un precio (sin descuento)
                 item['precio'] = self._formatear_precio(precios_numericos[0])
                 item['promocion'] = None
                 item['descuento'] = "0%"
             else:
-                # Fallback total: buscar en cualquier parte del article
                 item['precio'] = "No disponible"
                 item['promocion'] = None
                 item['descuento'] = "0%"
 
-            # --- REFUERZO DE DESCUENTO (Si el Éxito tiene el globo de %) ---
             pct_web = p.xpath('.//*[contains(text(), "%") and not(contains(text(), "IVA"))]/text()').get()
             if pct_web and item['descuento'] == "0%":
                 item['descuento'] = pct_web.strip()
 
-            # --- IMAGEN ---
             imgs = p.css('img::attr(src)').getall() + p.css('img::attr(data-src)').getall()
             img_final = next((i for i in imgs if i and not any(x in i.upper() for x in ['ENVIO', 'CIUDADES', 'PUNTOS'])), None)
             
@@ -136,7 +121,7 @@ class ExitoSpider(scrapy.Spider):
         if any(x in n for x in ['portatil', 'laptop', 'computador', 'desktop']): return 'computadores'
         if any(x in n for x in ['audifono', 'parlante', 'barra de sonido', 'sonido']): return 'audio'
         if 'tablet' in n: return 'tablets'
-        return 'tecnologia'
+        return 'otros'
 
     async def errback_close_page(self, failure):
         page = failure.request.meta.get("playwright_page")
