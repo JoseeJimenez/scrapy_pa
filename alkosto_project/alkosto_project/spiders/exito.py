@@ -115,12 +115,26 @@ class ExitoSpider(scrapy.Spider):
         return f"$ {valor:,} COP".replace(',', '.')
 
     def categorizar_estricto(self, nombre):
-        n = nombre.lower()
-        if any(x in n for x in ['celular', 'smartphone', 'iphone']): return 'celulares'
-        if any(x in n for x in ['televisor', 'smart tv', 'pantalla']): return 'pantallas'
-        if any(x in n for x in ['portatil', 'laptop', 'computador', 'desktop']): return 'computadores'
-        if any(x in n for x in ['audifono', 'parlante', 'barra de sonido', 'sonido']): return 'audio'
-        if 'tablet' in n: return 'tablets'
+        nombre = nombre.lower()
+        
+        if any(x in nombre for x in ['monitor', 'pantalla', 'display']):
+            return 'monitores'
+        
+        if any(x in nombre for x in ['televisor', 'tv', 'smart tv']):
+            return 'televisores'
+
+        categorias = {
+            'audio': ['parlante', 'bafle', 'audifonos', 'diadema', 'soundbar', 'barra de sonido', 'jbl', 'alexa', 'echo dot'],
+            'celulares': ['celular', 'smartphone', 'iphone', 'samsung galaxy', 'motorola', 'xiaomi'],
+            'computadores': ['portatil', 'laptop', 'desktop', 'all in one', 'pc', 'computador'],
+            'tablets': ['tablet', 'ipad', 'galaxy tab'],
+            'consolas': ['playstation', 'xbox', 'nintendo', 'switch', 'consola']
+        }
+
+        for cat, palabras in categorias.items():
+            if any(p in nombre for p in palabras):
+                return cat
+        
         return 'otros'
 
     async def errback_close_page(self, failure):
