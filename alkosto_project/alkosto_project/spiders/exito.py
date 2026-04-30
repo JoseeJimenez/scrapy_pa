@@ -1,20 +1,26 @@
 import scrapy
 from scrapy_playwright.page import PageMethod
 from alkosto_project.items import ExitoProjectItem
+import re
+import json
+
 
 class ExitoSpider(scrapy.Spider):
     name = 'exito'
-    max_pages = 49
-    current_page = 1
+    allowed_domains = ['exito.com']
     base_url = 'https://www.exito.com/tecnologia?page='
+    current_page = 1
+    total_pages = 49
 
     custom_settings = {
         'CONCURRENT_REQUESTS': 1,
         'DOWNLOAD_DELAY': 3,
         'PLAYWRIGHT_BROWSER_TYPE': 'chromium',
+        'CLOSESPIDER_TIMEOUT': 0, # Ayuda a que cierre más limpio en Windows
     }
 
-    def start_requests(self):
+    # Nuevo método recomendado por Scrapy 2.13+
+    async def start(self):
         yield self.make_request(self.current_page)
 
     def make_request(self, page):
@@ -24,40 +30,35 @@ class ExitoSpider(scrapy.Spider):
                 "playwright": True,
                 "playwright_include_page": True,
                 "playwright_page_methods": [
-                    PageMethod("wait_for_selector", "article[class*='productCard']", timeout=30000),
-                    PageMethod("evaluate", "window.scrollTo(0, document.body.scrollHeight/2)"),
-                    PageMethod("wait_for_timeout", 2000), # Subimos de 1500 a 2000
+                    # Espera amplia para evitar el TimeoutError en conexiones lentas
+                    PageMethod("wait_for_selector", "article", timeout=60000),
+                    # Scroll para disparar el lazy loading de imágenes y precios
                     PageMethod("evaluate", "window.scrollTo(0, document.body.scrollHeight)"),
-                    PageMethod("wait_for_timeout", 4000), # Subimos de 3000 a 4000
+                    # Tiempo de "asentamiento" para que el JS del Éxito renderice los precios reales
+                    PageMethod("wait_for_timeout", 10000), 
                 ],
             },
             callback=self.parse,
             errback=self.errback_close_page,
-            dont_filter=True # Vital para que Scrapy no bloquee las páginas del bucle
+            dont_filter=True
         )
 
     async def parse(self, response):
-        page = response.meta.get("playwright_page")
-        productos = response.css('article[class*="productCard"]')
+        page_obj = response.meta["playwright_page"]
         
-        if not productos:
-            self.logger.warning(f"Fin del catálogo o error en pág {self.current_page}")
-            if page: await page.close()
-            return
-
-        self.logger.info(f"ÉXITO: Procesando página {self.current_page} de {self.max_pages}")
+        # Extraemos los productos usando selectores CSS y XPath combinados
+        productos = response.css('article')
+        self.logger.info(f"ÉXITO: Procesando página {self.current_page} de {self.total_pages}")
 
         for p in productos:
             item = self._extraer_producto(p, response)
             if item:
                 yield item
 
-        # Cerramos la página de Playwright para liberar RAM antes de la siguiente
-        if page:
-            await page.close()
+        await page_obj.close()
 
-        # Salto automático a la siguiente URL
-        if self.current_page < self.max_pages:
+        # Lógica de paginación
+        if self.current_page < self.total_pages:
             self.current_page += 1
             yield self.make_request(self.current_page)
 
@@ -69,65 +70,76 @@ class ExitoSpider(scrapy.Spider):
             
             item['nombre'] = nombre.strip()
             item['marca'] = p.css('h3[class*="brand"]::text').get('').strip()
+            item['enlace'] = response.urljoin(p.css('a::attr(href)').get())
+
+            # --- ESTRATEGIA DE BARRIDO: Traemos todos los textos que tengan "$" ---
+            todos_los_precios = p.xpath('.//*[contains(text(), "$")]//text()').getall()
+            # Limpiamos y convertimos a números
+            precios_numericos = []
+            for texto in todos_los_precios:
+                valor = self.limpiar_precio(texto)
+                if valor > 0:
+                    precios_numericos.append(valor)
             
-            # --- MEJORA DE PRECIOS ---
-            # Buscamos el precio principal (el que tú ves en grande)
-            # Intentamos varios selectores comunes en el Éxito para evitar el null
-            p_actual = p.css('p[data-testid="virtuality-price"]::text').get() or \
-                       p.css('p[class*="Price_price"]::text').get() or \
-                       p.xpath('.//p[contains(@class, "price")]/text()').get()
+            # Eliminamos duplicados manteniendo el orden
+            precios_numericos = list(dict.fromkeys(precios_numericos))
 
-            # Buscamos el precio tachado (el original)
-            p_tachado = p.css('p[class*="dashed"]::text').get() or \
-                        p.css('p[class*="ListPrice"]::text').get()
-
-            v_actual = self.limpiar_precio(p_actual)
-            v_tachado = self.limpiar_precio(p_tachado)
-
-            if v_tachado > v_actual and v_actual > 0:
-                item['promocion'] = self._formatear_precio(v_actual)
-                item['precio'] = self._formatear_precio(v_tachado)
-                item['descuento'] = f"-{round(100 - (v_actual * 100 / v_tachado))}%"
+            # --- LÓGICA DE ASIGNACIÓN SEGÚN LOS VALORES ENCONTRADOS ---
+            if len(precios_numericos) >= 2:
+                # Si hay dos o más, el mayor es el normal y el menor es la oferta
+                v_normal = max(precios_numericos)
+                v_oferta = min(precios_numericos)
+                item['precio'] = self._formatear_precio(v_normal)
+                item['promocion'] = self._formatear_precio(v_oferta)
+                item['descuento'] = f"-{round(100 - (v_oferta * 100 / v_normal))}%"
+            elif len(precios_numericos) == 1:
+                # Solo hay un precio (sin descuento)
+                item['precio'] = self._formatear_precio(precios_numericos[0])
+                item['promocion'] = None
+                item['descuento'] = "0%"
             else:
-                item['precio'] = self._formatear_precio(v_actual)
+                # Fallback total: buscar en cualquier parte del article
+                item['precio'] = "No disponible"
                 item['promocion'] = None
                 item['descuento'] = "0%"
 
-            # --- MEJORA DE IMAGEN (Evitar la de "Envío") ---
-            # Priorizamos 'data-src' que es donde guardan la imagen real antes de cargarla
-            imagen = p.css('img::attr(data-src)').get() or \
-                     p.css('img::attr(src)').get()
-            
-            # Si la imagen contiene "envio-gratis" o "ciudades", es que no ha cargado la real
-            if imagen and ("ENVIO" in imagen.upper() or "CIUDADES" in imagen.upper()):
-                # Intentamos buscar otra imagen dentro del mismo article
-                imagen = p.css('img[class*="product"]::attr(src)').get() or imagen
+            # --- REFUERZO DE DESCUENTO (Si el Éxito tiene el globo de %) ---
+            pct_web = p.xpath('.//*[contains(text(), "%") and not(contains(text(), "IVA"))]/text()').get()
+            if pct_web and item['descuento'] == "0%":
+                item['descuento'] = pct_web.strip()
 
-            item['imagen'] = response.urljoin(imagen)
-            item['enlace'] = response.urljoin(p.css('a::attr(href)').get())
+            # --- IMAGEN ---
+            imgs = p.css('img::attr(src)').getall() + p.css('img::attr(data-src)').getall()
+            img_final = next((i for i in imgs if i and not any(x in i.upper() for x in ['ENVIO', 'CIUDADES', 'PUNTOS'])), None)
+            
+            item['imagen'] = response.urljoin(img_final) if img_final else None
             item['tienda'] = 'Éxito'
             item['categoria'] = self.categorizar_estricto(item['nombre'])
             
             return item
         except Exception as e:
-            self.logger.error(f"Error parseando producto: {e}")
+            self.logger.error(f"Error crítico en producto: {e}")
             return None
+
+    def limpiar_precio(self, texto):
+        if not texto: return 0
+        numeros = re.sub(r'[^\d]', '', texto)
+        return int(numeros) if numeros else 0
+
+    def _formatear_precio(self, valor):
+        return f"$ {valor:,} COP".replace(',', '.')
 
     def categorizar_estricto(self, nombre):
         n = nombre.lower()
-        if any(x in n for x in ['televisor', 'tv', 'pantalla']): return 'pantallas'
         if any(x in n for x in ['celular', 'smartphone', 'iphone']): return 'celulares'
-        if any(x in n for x in ['portátil', 'laptop', 'computador']): return 'computadores'
-        return 'otros'
-
-    def limpiar_precio(self, t):
-        if not t: return 0
-        nums = ''.join(filter(str.isdigit, str(t)))
-        return int(nums) if nums else 0
-
-    def _formatear_precio(self, v):
-        return f"$ {v:,.0f}".replace(",", ".") + " COP" if v > 0 else "No disponible"
+        if any(x in n for x in ['televisor', 'smart tv', 'pantalla']): return 'pantallas'
+        if any(x in n for x in ['portatil', 'laptop', 'computador', 'desktop']): return 'computadores'
+        if any(x in n for x in ['audifono', 'parlante', 'barra de sonido', 'sonido']): return 'audio'
+        if 'tablet' in n: return 'tablets'
+        return 'tecnologia'
 
     async def errback_close_page(self, failure):
         page = failure.request.meta.get("playwright_page")
-        if page: await page.close()
+        if page:
+            await page.close()
+        self.logger.error(f"Error en solicitud: {failure}")
