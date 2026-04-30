@@ -8,7 +8,7 @@ import platform
 if platform.system() == 'win32':
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
-# este spider es el mas duro que todos
+# este spider es el mas duro que todos 99%%
 class ComputerworkingSpider(scrapy.Spider):
     name = 'compuworking'
     allowed_domains = ['computerworking.com.co']
