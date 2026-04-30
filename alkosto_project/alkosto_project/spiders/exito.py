@@ -4,7 +4,7 @@ from alkosto_project.items import ExitoProjectItem
 
 class ExitoSpider(scrapy.Spider):
     name = 'exito'
-    max_pages = 100
+    max_pages = 40
     current_page = 1
     base_url = 'https://www.exito.com/tecnologia?page='
 
@@ -27,7 +27,7 @@ class ExitoSpider(scrapy.Spider):
                     PageMethod("wait_for_selector", "article[class*='productCard']", timeout=30000),
                     # Scroll en dos tiempos para asegurar carga de datos
                     PageMethod("evaluate", "window.scrollTo(0, document.body.scrollHeight/2)"),
-                    PageMethod("wait_for_timeout", 1500),
+                    PageMethod("wait_for_timeout", 2000),
                     PageMethod("evaluate", "window.scrollTo(0, document.body.scrollHeight)"),
                     PageMethod("wait_for_timeout", 3000),
                 ],
