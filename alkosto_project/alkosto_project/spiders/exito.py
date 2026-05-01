@@ -36,6 +36,7 @@ class ExitoSpider(scrapy.Spider):
                 "playwright_include_page": True,
                 "playwright_page_methods": [
                     PageMethod("wait_for_selector", "article", timeout=60000),
+                    # Scroll progresivo para disparar carga de estrellas
                     PageMethod("evaluate", "window.scrollBy(0, 2000)"),
                     PageMethod("wait_for_timeout", 5000),
                     PageMethod("evaluate", "window.scrollTo(0, document.body.scrollHeight)"),
@@ -51,6 +52,8 @@ class ExitoSpider(scrapy.Spider):
         page_obj = response.meta["playwright_page"]
         productos = response.css('article')
         
+        self.logger.info(f"ÉXITO: Procesando página {self.current_page}")
+
         for p in productos:
             item = self._extraer_producto(p, response)
             if item:
@@ -71,7 +74,6 @@ class ExitoSpider(scrapy.Spider):
             item['marca'] = p.css('h3[class*="brand"]::text').get('').strip()
             item['enlace'] = response.urljoin(p.css('a::attr(href)').get())
 
-            # --- PRECIOS ---
             precios_raw = p.xpath('.//*[contains(text(), "$")]/text()').getall()
             precios_num = sorted(list(set(self.limpiar_precio(t) for t in precios_raw if self.limpiar_precio(t) > 1000)), reverse=True)
             
@@ -85,14 +87,13 @@ class ExitoSpider(scrapy.Spider):
                 item['precio'] = self._formatear_precio(val_precio)
                 item['promocion'] = None
 
-            # --- DESCUENTO ---
             if val_precio and val_promo and val_promo < val_precio:
                 calculo = round(100 - (val_promo * 100 / val_precio))
                 item['descuento'] = f"-{calculo}%"
             else:
                 item['descuento'] = None
 
-            calif_selector = p.css('[class*="ratings-calification"]::text, [class*="ratingInline"]::text, .vtex-reviews-and-ratings-1x-starsContainer + span::text').get()
+            calif_selector = p.css('[class*="ratings-calification"]::text, [class*="ratingInline"]::text').get()
             
             item['calificacion'] = None
             if calif_selector:
@@ -104,14 +105,12 @@ class ExitoSpider(scrapy.Spider):
             
             if item['calificacion'] is None:
                 bloque_estrellas = p.xpath('.//*[contains(@class, "rating") or contains(@class, "star")]//text()').getall()
-                texto_estrellas = " ".join(bloque_estrellas)
-                match_alt = re.search(r'(\d[\.,]\d)', texto_estrellas)
+                match_alt = re.search(r'(\d[\.,]\d)', " ".join(bloque_estrellas))
                 if match_alt:
                     val_alt = float(match_alt.group(1).replace(',', '.'))
                     if 0 < val_alt <= 5.0:
                         item['calificacion'] = val_alt
 
-            # --- IMAGEN Y CATEGORÍA ---
             imgs = p.css('img::attr(src)').getall() + p.css('img::attr(data-src)').getall()
             img_final = next((i for i in imgs if i and 'vtexassets' in i), None)
             item['imagen'] = response.urljoin(img_final) if img_final else None
@@ -134,10 +133,12 @@ class ExitoSpider(scrapy.Spider):
         n = self.eliminar_tildes(nombre.lower())
         if any(x in n for x in ['monitor', 'pantalla', 'televisor', 'tv']): return 'pantallas'
         categorias = {
-            'audio': ['parlante', 'bafle', 'audifonos', 'soundbar', 'jbl', 'alexa', 'airpods'],
-            'celulares': ['celular', 'smartphone', 'iphone', 'samsung galaxy', 'motorola'],
-            'computadores': ['portatil', 'laptop', 'desktop', 'pc', 'macbook'],
-            'impresoras': ['impresora', 'multifuncional', 'epson', 'hp'],
+            'audio': ['parlante', 'bafle', 'audifonos', 'soundbar', 'jbl', 'alexa', 'airpods', 'buds', 'bocina'],
+            'celulares': ['celular', 'smartphone', 'iphone', 'samsung galaxy', 'motorola', 'reloj inteligente'],
+            'computadores': ['portatil', 'laptop', 'desktop', 'pc', 'macbook', 'todo en uno'],
+            'impresoras': ['impresora', 'multifuncional', 'epson', 'hp', 'canon', 'smart tank'],
+            'consolas': ['playstation', 'xbox', 'nintendo', 'switch', 'consola'],
+            'tablets': ['tablet', 'ipad', 'galaxy tab']
         }
         for cat, palabras in categorias.items():
             if any(p in n for p in palabras): return cat
