@@ -130,20 +130,48 @@ class ExitoSpider(scrapy.Spider):
         return f"$ {valor:,} COP".replace(',', '.')
 
     def categorizar_estricto(self, nombre):
+        # Normalizamos el nombre eliminando tildes y pasando a minúsculas
         n = self.eliminar_tildes(nombre.lower())
-        if any(x in n for x in ['monitor', 'pantalla', 'televisor', 'tv']): return 'pantallas'
-        categorias = {
-            'audio': ['parlante', 'bafle', 'audifonos', 'soundbar', 'jbl', 'alexa', 'airpods', 'buds', 'bocina'],
-            'celulares': ['celular', 'smartphone', 'iphone', 'samsung galaxy', 'motorola', 'reloj inteligente'],
-            'computadores': ['portatil', 'laptop', 'desktop', 'pc', 'macbook', 'todo en uno'],
-            'impresoras': ['impresora', 'multifuncional', 'epson', 'hp', 'canon', 'smart tank'],
-            'consolas': ['playstation', 'xbox', 'nintendo', 'switch', 'consola'],
-            'tablets': ['tablet', 'ipad', 'galaxy tab']
-        }
-        for cat, palabras in categorias.items():
-            if any(p in n for p in palabras): return cat
-        return 'otros'
+        
+        # Prioridad para Pantallas/TV
+        if any(x in n for x in ['monitor', 'pantalla', 'televisor', 'tv']):
+            return 'pantallas'
 
+        # Definición de categorías con palabras clave expandidas
+        categorias = {
+            'audio': [
+                'parlante', 'bafle', 'audifonos', 'diadema', 'soundbar', 
+                'jbl', 'alexa', 'airpods', 'buds', 'bocina', 
+                'barra de sonido', 'teatro en casa', 'home theater', 
+                'torre de sonido', 'microfono', 'subwoofer'
+            ],
+            'celulares': [
+                'celular', 'smartphone', 'iphone', 'samsung galaxy', 
+                'motorola', 'reloj inteligente', 'apple watch', 'galaxy watch'
+            ],
+            'computadores': [
+                'portatil', 'laptop', 'desktop', 'pc', 'computador', 
+                'macbook', 'todo en uno', 'aio'
+            ],
+            'impresoras': [
+                'impresora', 'multifuncional', 'epson', 'hp', 
+                'canon', 'smart tank', 'ecotank', 'laserjet'
+            ],
+            'consolas': [
+                'playstation', 'xbox', 'nintendo', 'switch', 'consola', 'joystick'
+            ],
+            'tablets': [
+                'tablet', 'ipad', 'galaxy tab'
+            ]
+        }
+
+        # Buscamos coincidencias
+        for cat, palabras in categorias.items():
+            if any(p in n for p in palabras):
+                return cat
+                
+        return 'otros'
+    
     async def errback_close_page(self, failure):
         page = failure.request.meta.get("playwright_page")
         if page: await page.close()
