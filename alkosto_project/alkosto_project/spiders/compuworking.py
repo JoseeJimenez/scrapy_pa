@@ -1,6 +1,6 @@
 import scrapy
 from scrapy_playwright.page import PageMethod
-from alkosto_project.items import AlkostoProjectItem
+from alkosto_project.items import ComputerworkingItem
 import asyncio
 import platform
 
@@ -90,7 +90,7 @@ class ComputerworkingSpider(scrapy.Spider):
 
                 categoria_final = self.categorizar(nombre, categoria_destino)
 
-                item = AlkostoProjectItem()
+                item = ComputerworkingItem()
                 item['nombre']    = nombre
                 item['precio']    = self.formatear_precio(precio_raw)
                 item['enlace']    = response.urljoin(enlace)
