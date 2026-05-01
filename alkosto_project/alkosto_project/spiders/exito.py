@@ -2,8 +2,7 @@ import scrapy
 from scrapy_playwright.page import PageMethod
 from alkosto_project.items import ExitoProjectItem
 import re
-import json
-
+import unicodedata
 
 class ExitoSpider(scrapy.Spider):
     name = 'exito'
@@ -16,8 +15,13 @@ class ExitoSpider(scrapy.Spider):
         'CONCURRENT_REQUESTS': 1,
         'DOWNLOAD_DELAY': 3,
         'PLAYWRIGHT_BROWSER_TYPE': 'chromium',
-        'CLOSESPIDER_TIMEOUT': 0, 
     }
+
+    def eliminar_tildes(self, texto):
+        """Elimina acentos para mejorar el match de categorías."""
+        if not texto: return ""
+        return "".join(c for c in unicodedata.normalize('NFD', texto)
+                  if unicodedata.category(c) != 'Mn')
 
     async def start(self):
         yield self.make_request(self.current_page)
@@ -41,9 +45,9 @@ class ExitoSpider(scrapy.Spider):
 
     async def parse(self, response):
         page_obj = response.meta["playwright_page"]
-        
         productos = response.css('article')
-        self.logger.info(f"ÉXITO: Procesando página {self.current_page} de {self.total_pages}")
+        
+        self.logger.info(f"ÉXITO: Procesando página {self.current_page}")
 
         for p in productos:
             item = self._extraer_producto(p, response)
@@ -80,7 +84,9 @@ class ExitoSpider(scrapy.Spider):
                 v_oferta = min(precios_numericos)
                 item['precio'] = self._formatear_precio(v_normal)
                 item['promocion'] = self._formatear_precio(v_oferta)
-                item['descuento'] = f"-{round(100 - (v_oferta * 100 / v_normal))}%"
+                
+                pct_web = p.xpath('.//*[contains(text(), "%") and not(contains(text(), "IVA"))]/text()').get()
+                item['descuento'] = pct_web.strip() if pct_web else f"-{round(100 - (v_oferta * 100 / v_normal))}%"
             elif len(precios_numericos) == 1:
                 item['precio'] = self._formatear_precio(precios_numericos[0])
                 item['promocion'] = None
@@ -89,10 +95,6 @@ class ExitoSpider(scrapy.Spider):
                 item['precio'] = "No disponible"
                 item['promocion'] = None
                 item['descuento'] = "0%"
-
-            pct_web = p.xpath('.//*[contains(text(), "%") and not(contains(text(), "IVA"))]/text()').get()
-            if pct_web and item['descuento'] == "0%":
-                item['descuento'] = pct_web.strip()
 
             imgs = p.css('img::attr(src)').getall() + p.css('img::attr(data-src)').getall()
             img_final = next((i for i in imgs if i and not any(x in i.upper() for x in ['ENVIO', 'CIUDADES', 'PUNTOS'])), None)
@@ -103,7 +105,7 @@ class ExitoSpider(scrapy.Spider):
             
             return item
         except Exception as e:
-            self.logger.error(f"Error crítico en producto: {e}")
+            self.logger.error(f"Error parseando producto: {e}")
             return None
 
     def limpiar_precio(self, texto):
@@ -115,30 +117,39 @@ class ExitoSpider(scrapy.Spider):
         return f"$ {valor:,} COP".replace(',', '.')
 
     def categorizar_estricto(self, nombre):
-        nombre = nombre.lower()
+        # Limpieza para ignorar tildes y mayúsculas
+        n = self.eliminar_tildes(nombre.lower())
         
-        if any(x in nombre for x in ['monitor', 'pantalla', 'display']):
+        # 1. Prioridades Críticas (Lo que suele colarse)
+        if any(x in n for x in ['monitor', 'pantalla', 'display']):
             return 'monitores'
-        
-        if any(x in nombre for x in ['televisor', 'tv', 'smart tv']):
+        if any(x in n for x in ['televisor', 'tv', 'smart tv']):
             return 'televisores'
 
+        # 2. Diccionario de búsqueda refinado
         categorias = {
-            'audio': ['parlante', 'bafle', 'audifonos', 'diadema', 'soundbar', 'barra de sonido', 'jbl', 'alexa', 'echo dot'],
+            'audio': ['parlante', 'bafle', 'audifonos', 'diadema', 'soundbar', 'jbl', 'alexa', 'echo dot'],
             'celulares': ['celular', 'smartphone', 'iphone', 'samsung galaxy', 'motorola', 'xiaomi'],
-            'computadores': ['portatil', 'laptop', 'desktop', 'all in one', 'pc', 'computador'],
+            'computadores': ['portatil', 'portátil', 'laptop', 'desktop', 'all in one', 'pc', 'computador'],
             'tablets': ['tablet', 'ipad', 'galaxy tab'],
-            'consolas': ['playstation', 'xbox', 'nintendo', 'switch', 'consola']
+            'consolas': ['playstation', 'xbox', 'nintendo', 'switch'],
+            # Nueva categoría específica para Impresoras
+            'impresoras': ['impresora', 'multifuncional', 'smart tank', 'ecotank', 'laserjet'],
+            # Nueva categoría para Tintas e Insumos
+            'tintas_insumos': ['tinta', 'cartucho', 'toner', 'botella de tinta', 'consumible'],
+            # Periféricos queda para el resto de accesorios
+            'perifericos': ['mouse', 'teclado', 'webcam', 'disco duro externo', 'memoria usb']
         }
 
+        # 3. Mapeo lógico
         for cat, palabras in categorias.items():
-            if any(p in nombre for p in palabras):
+            if any(p in n for p in palabras):
                 return cat
         
+        # 4. Si no encaja en nada
         return 'otros'
 
     async def errback_close_page(self, failure):
         page = failure.request.meta.get("playwright_page")
         if page:
             await page.close()
-        self.logger.error(f"Error en solicitud: {failure}")
