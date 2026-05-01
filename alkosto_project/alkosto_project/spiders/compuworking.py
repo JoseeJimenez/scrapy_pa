@@ -12,19 +12,17 @@ class ComputerworkingSpider(scrapy.Spider):
     name = 'compuworking'
     allowed_domains = ['computerworking.com.co']
 
-    # Orden exacto pedido: computadores, celulares, tablets, pantallas, audio, consolas, impresoras, otros
-    # Cada tupla: (categoria_destino, url_base)
     CATEGORIAS = [
-        ('computadores',  'https://www.computerworking.com.co/categorias/222/true'),   # portatiles -> computadores
-        ('computadores',  'https://www.computerworking.com.co/categorias/310/true'),   # computadores
-        ('accesorios_pc', 'https://www.computerworking.com.co/categorias/169/true'),   # accesorios -> otros
-        ('mouse_teclado', 'https://www.computerworking.com.co/categorias/124/true'),   # mouse/teclado -> otros
-        ('celulares',     'https://www.computerworking.com.co/categorias/230/true'),   # celulares + tablets
-        ('pantallas',     'https://www.computerworking.com.co/categorias/390/true'),   # televisores -> pantallas
-        ('audio',         'https://www.computerworking.com.co/categorias/241/true'),   # audio
-        ('consolas',      'https://www.computerworking.com.co/categorias/243/true'),   # consolas + controles
-        ('impresoras',    'https://www.computerworking.com.co/categorias/9/true'),     # impresoras
-        ('impresoras',    'https://www.computerworking.com.co/categorias/301/true'),   # consumibles impresora
+        ('computadores',  'https://www.computerworking.com.co/categorias/222/true'),
+        ('computadores',  'https://www.computerworking.com.co/categorias/310/true'),
+        ('accesorios_pc', 'https://www.computerworking.com.co/categorias/169/true'),
+        ('mouse_teclado', 'https://www.computerworking.com.co/categorias/124/true'),
+        ('celulares',     'https://www.computerworking.com.co/categorias/230/true'),
+        ('pantallas',     'https://www.computerworking.com.co/categorias/390/true'),
+        ('audio',         'https://www.computerworking.com.co/categorias/241/true'),
+        ('consolas',      'https://www.computerworking.com.co/categorias/243/true'),
+        ('impresoras',    'https://www.computerworking.com.co/categorias/9/true'),
+        ('impresoras',    'https://www.computerworking.com.co/categorias/301/true'),
     ]
 
     custom_settings = {
@@ -106,7 +104,6 @@ class ComputerworkingSpider(scrapy.Spider):
             except Exception as e:
                 self.logger.error(f'Error #{idx}: {e}')
 
-        # --- Siguiente pagina de esta misma URL ---
         next_href = response.css('a.next::attr(href)').get()
         if productos and next_href:
             siguiente_pagina = pagina + 1
@@ -119,7 +116,6 @@ class ComputerworkingSpider(scrapy.Spider):
             )
             return
 
-        # --- URL terminada: pasar a la siguiente ---
         self.logger.info(f'URL [{categoria_destino}] completada en {pagina} paginas')
         idx_siguiente = idx_categoria + 1
         if idx_siguiente < len(self.CATEGORIAS):
@@ -136,59 +132,78 @@ class ComputerworkingSpider(scrapy.Spider):
         else:
             self.logger.info('✅ TODAS LAS CATEGORIAS COMPLETADAS.')
 
-    # ─────────────────────────────────────────────────────────────
-    # Categorización final según las reglas pedidas:
-    #   computadores → computadores y portátiles
-    #   celulares    → solo celulares
-    #   tablets      → solo tablets
-    #   pantallas    → televisores y monitores
-    #   audio        → audio
-    #   consolas     → consolas y controles gamer
-    #   impresoras   → impresoras y consumibles
-    #   otros        → todo lo demás (accesorios, mouse, teclado, sillas, etc.)
-    # ─────────────────────────────────────────────────────────────
     def categorizar(self, nombre, categoria_destino):
         n = nombre.lower()
 
-        # --- COMPUTADORES (portátiles + computadores de escritorio) ---
+        # --- COMPUTADORES ---
         if categoria_destino == 'computadores':
+            if any(k in n for k in (
+                'accesorios portátil', 'morral', 'funda', 'cargador',
+                'base refrigerante', 'refrigeración', 'base', 'protector', 'lampara', 'guaya'
+            )):
+                return 'otros'
             return 'computadores'
 
         # --- CELULARES / TABLETS ---
         if categoria_destino == 'celulares':
-            if any(k in n for k in ('tablet', 'tableta', 'ipad')):
+            if any(k in n for k in ('tablet', 'tableta', 'ipad', 'tab ', 'tab+', 'samsung galaxy tab')):
+                # FIX 1: quitamos 'lapiz' de aquí — un bundle "tablet + lapiz" sigue siendo tablet
+                if any(k in n for k in (
+                    'base para', 'soporte', 'funda', 'cargador', 'cable', 'protector', 'stylus'
+                )):
+                    return 'otros'
                 return 'tablets'
-            # Accesorios de celular (power bank, selfie, aro de luz, smartwatch, etc.)
-            # van a "otros" porque no son celulares ni tablets como dispositivo
+
             if any(k in n for k in (
                 'smartwatch', 'power bank', 'powerbank', 'selfie', 'aro de luz',
                 'panel de luz', 'tripode', 'tripié', 'cargador', 'base para',
-                'smart band', 'control remoto'
+                'smart band', 'control remoto', 'bateria', 'cable', 'soporte', 'lapiz'
             )):
                 return 'otros'
             return 'celulares'
 
-        # --- PANTALLAS (televisores, monitores, soportes TV, etc.) ---
+        # --- PANTALLAS ---
         if categoria_destino == 'pantallas':
-            if any(k in n for k in ('televisor', 'monitor', 'pantalla', 'tv', 'smart tv')):
+            # FIX 2: agregamos 'soporte para televisor', 'soporte pedestal', 'splitter', 'antena'
+            if any(k in n for k in (
+                'soporte para tv',
+                'soporte tv',
+                'soporte televisor',
+                'soporte para televisor',   # ← nuevo: "soporte para televisores flexible"
+                'soporte de techo',
+                'soporte pedestal',         # ← nuevo: "soporte pedestal mobile tv trolley"
+                'tv stick',
+                'tv box',
+                'decodificador',
+                'receptor',
+                'game stick',
+                'splitter',                 # ← nuevo: "splitter hdmi X puertos"
+                'antena',                   # ← nuevo: "antena tdt"
+            )):
+                return 'otros'
+
+            if any(k in n for k in ('televisor', 'monitor', 'pantalla', 'tv ', 'smart tv')):
                 return 'pantallas'
-            # Accesorios TV (soportes, splitters, tv box) -> otros
+
             return 'otros'
 
         # --- AUDIO ---
         if categoria_destino == 'audio':
             return 'audio'
 
-        # --- CONSOLAS (consolas + controles gamer) ---
+        # --- CONSOLAS ---
         if categoria_destino == 'consolas':
             return 'consolas'
 
-        # --- IMPRESORAS + CONSUMIBLES ---
+        # --- IMPRESORAS ---
         if categoria_destino == 'impresoras':
             return 'impresoras'
 
-        # --- ACCESORIOS PC / MOUSE-TECLADO -> todos van a "otros" ---
-        if categoria_destino in ('accesorios_pc', 'mouse_teclado'):
+        # accesorios_pc, mouse_teclado → otros
+        if categoria_destino in (
+            'accesorios_pc', 'mouse_teclado', 'accesorios_portatil',
+            'morral', 'fundas', 'cargadores', 'bases_refrigerantes'
+        ):
             return 'otros'
 
         return 'otros'
