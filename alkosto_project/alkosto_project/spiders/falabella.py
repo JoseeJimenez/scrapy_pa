@@ -29,6 +29,8 @@ class FalabellaSpider(scrapy.Spider):
         'INTEL', 'MICROSOFT', 'TCL', 'HISENSE', 'PANASONIC', 'SHARP',
         'JBL', 'BOSE', 'ANKER', 'BEATS', 'STEREN', 'PHILIPS', 'STARLINK',
         'RAZER', 'CORSAIR', 'GIGABYTE', 'AMD', 'NVIDIA', 'ALIENWARE',
+        'NINTENDO', 'PLAYSTATION', 'XBOX', 'STEELSERIES', 'HYPERX',
+        'SENNHEISER', 'JABRA', 'SKULLCANDY', 'MARSHALL', 'HARMAN',
     ]
 
     MAX_PAGES   = 10
@@ -44,15 +46,206 @@ class FalabellaSpider(scrapy.Spider):
         ('https://www.falabella.com.co/falabella-co/category/cat790955/Impresoras-y-Tintas',      'impresoras'),
         ('https://www.falabella.com.co/falabella-co/category/cat5420971/Smart-TV',                'pantallas'),
         ('https://www.falabella.com.co/falabella-co/category/cat1660941/Celulares-y-Telefonos',   'celulares'),
+        ('https://www.falabella.com.co/falabella-co/category/cat50590/Gaming',                    'consolas'),
+        ('https://www.falabella.com.co/falabella-co/category/cat10550940/Audio',                  'audio'),
     ]
 
-    # ──────────────────────────────────────────────────────────────────────────
+    # =========================================================================
+    # Categorías permitidas por URL de origen.
+    # Si el clasificador por nombre da un resultado fuera de este set,
+    # la URL gana y se usa categoria_origen.
+    # 'otros' siempre está permitido (es el descarte universal).
+    # =========================================================================
+    _CATEGORIAS_PERMITIDAS = {
+        'computadores': {'computadores', 'otros'},
+        'tablets':      {'tablets',      'otros'},
+        'celulares':    {'celulares',    'otros'},
+        'impresoras':   {'impresoras',   'otros'},
+        'pantallas':    {'pantallas',    'otros'},
+        'consolas':     {'consolas',     'otros'},
+        'audio':        {'audio',        'otros'},
+    }
+
+    # =========================================================================
+    # Keywords de clasificación (minúsculas, sin tildes)
+    # =========================================================================
+
+    _EXCLUIR = [
+        'proyector', 'videoproyector', 'mini proyector',
+        'disco menstrual', 'copa menstrual', 'tampon', 'toalla higienica',
+        'camiseta', 'camisa ', 'pantalon', 'zapato', 'tenis ',
+        'reloj ', 'pulsera ', 'collar ', 'anillo ',
+        'licuadora', 'batidora', 'cafetera', 'microondas',
+        'aspiradora', 'plancha cabello', 'secador cabello',
+        'muneca', 'peluche', 'lego ',
+        'cuaderno', 'boligrafo', 'tijeras',
+    ]
+
+    _CABLES = [
+        'cable ', 'cable hdmi', 'cable usb', 'cable vga', 'cable dp',
+        'adaptador', 'convertidor', 'extension usb', 'extensor usb',
+        'splitter', 'hub usb', 'bracket',
+    ]
+
+    _IMPRESORAS = [
+        'impresora', 'multifuncional', 'plotter',
+        'escaner', 'printer',
+    ]
+
+    _TABLETS = [
+        'tablet', 'tableta', 'ipad',
+        'galaxy tab', ' tab s', ' tab a', ' tab p',
+        'mediapad', 'lenovo tab', 'fire tablet',
+    ]
+
+    _CELULARES = [
+        'celular', 'smartphone', 'iphone',
+        'galaxy s', 'galaxy a', 'galaxy z', 'galaxy m',
+        'redmi ', ' poco ', 'moto g', 'moto e', ' pixel ',
+        'find x', 'reno ',
+    ]
+
+    _CONSOLAS = [
+        'playstation', 'ps5 ', 'ps4 ', 'ps3 ',
+        'xbox series', 'xbox one',
+        'nintendo switch', 'switch lite', 'switch oled',
+        'steam deck', 'game boy',
+    ]
+
+    # Keywords inequívocos de computador (sin "portatil" suelto)
+    _COMPUTADORES_DIRECTOS = [
+        'laptop', 'notebook', 'macbook', 'chromebook', 'ultrabook',
+        'todo en uno', 'todo-en-uno', 'all in one',
+        'pc gamer', 'pc escritorio', 'pc de escritorio',
+        'desktop pc', 'mini pc',
+        'computador', 'computadora',
+    ]
+
+    # Contexto de hardware que confirma que "portatil" es un computador
+    # y no una impresora/parlante/cámara portátil
+    _CONTEXTO_HW = [
+        'core i3', 'core i5', 'core i7', 'core i9',
+        'ryzen 3', 'ryzen 5', 'ryzen 7', 'ryzen 9',
+        'celeron', 'pentium', 'athlon',
+        ' ram ', 'gb ram', ' ssd', ' hdd', ' nvme',
+        'windows 11', 'windows 10', 'macos', 'chrome os',
+        ' 8gb', ' 16gb', ' 32gb',
+        'pantalla 13', 'pantalla 14', 'pantalla 15', 'pantalla 16',
+        '13 pulgadas', '14 pulgadas', '15 pulgadas', '16 pulgadas',
+        'gamer portatil', 'gaming portatil',
+    ]
+
+    _PANTALLAS = [
+        'smart tv', 'television', 'televisor',
+        'tv qled', 'tv oled', 'tv led', 'tv 4k', 'tv 8k',
+        ' monitor ', 'monitor gamer', 'monitor curvo', 'monitor led',
+        'monitor ips', 'monitor 4k', 'gaming monitor',
+        'pantalla pc',
+    ]
+
+    _AUDIO = [
+        'parlante', 'altavoz', 'bocina',
+        'soundbar', 'barra de sonido',
+        'home theater', 'teatro en casa',
+        'audifono', 'audifonos', 'auricular',
+        'headphone', 'earbud', 'earphone',
+        'equipo de sonido', 'minicomponente', 'subwoofer',
+        'speaker bluetooth', 'radio bluetooth', 'radio portatil',
+        'tocadiscos', 'turntable',
+    ]
+
+    _PERIFERICOS = [
+        'mouse ', 'raton ', 'teclado', 'keyboard',
+        'webcam ', 'camara web',
+        'mousepad', 'pad mouse', 'almohadilla',
+        'headset gamer', 'headset gaming',
+        'stylus ', 'lapiz optico', 'lapiz digital',
+        'wrist rest', 'reposamuñecas',
+    ]
+
+    # =========================================================================
+    # Normalización
+    # =========================================================================
+    @staticmethod
+    def _norm(texto):
+        """Minúsculas, sin tildes, con espacios en bordes para matching exacto."""
+        return (
+            ' ' + texto.lower()
+            .replace('á', 'a').replace('é', 'e').replace('í', 'i')
+            .replace('ó', 'o').replace('ú', 'u').replace('ü', 'u')
+            .replace('ñ', 'n')
+            + ' '
+        )
+
+    @staticmethod
+    def _hit(n, keywords):
+        return any(k in n for k in keywords)
+
+    # =========================================================================
+    # Reclasificación con sistema de prioridades + validación por URL
+    # =========================================================================
+    def _reclasificar(self, nombre, categoria_origen):
+        n = self._norm(nombre)
+
+        # ── Clasificador por nombre (10 niveles) ──────────────────────────────
+
+        if self._hit(n, self._EXCLUIR):
+            resultado = 'otros'
+        elif self._hit(n, self._CABLES):
+            resultado = 'otros'
+        elif self._hit(n, self._IMPRESORAS):
+            resultado = 'impresoras'
+        elif self._hit(n, self._TABLETS):
+            resultado = 'tablets'
+        elif self._hit(n, self._CELULARES):
+            resultado = 'celulares'
+        elif self._hit(n, self._CONSOLAS):
+            resultado = 'consolas'
+        elif self._hit(n, self._COMPUTADORES_DIRECTOS):
+            resultado = 'computadores'
+        elif 'portatil' in n and self._hit(n, self._CONTEXTO_HW):
+            # "portatil" suelto solo clasifica si hay contexto de hardware real.
+            # Evita: "Impresora Portátil Bluetooth", "Parlante Portátil JBL".
+            resultado = 'computadores'
+        elif self._hit(n, self._PANTALLAS):
+            # Va DESPUÉS de computadores: "PC Gamer con Monitor 27"
+            # ya clasificó arriba y nunca llega aquí.
+            resultado = 'pantallas'
+        elif self._hit(n, self._AUDIO):
+            resultado = 'audio'
+        elif self._hit(n, self._PERIFERICOS):
+            resultado = 'perifericos'
+        else:
+            self.logger.debug(f'[Falabella] SIN CATEGORIA: "{nombre[:60]}"')
+            resultado = 'otros'
+
+        # ── Validación por URL ────────────────────────────────────────────────
+        # Si el clasificador por nombre da una categoría incompatible con la
+        # URL de origen, la URL gana.
+        # Ejemplo: un producto en la URL de computadores nunca puede salir
+        # como 'pantallas' o 'audio' — forzamos a categoria_origen.
+        # 'otros' siempre se respeta (descarte universal).
+        permitidas = self._CATEGORIAS_PERMITIDAS.get(categoria_origen)
+        if permitidas and resultado not in permitidas:
+            self.logger.debug(
+                f'[Falabella] URL-OVERRIDE: "{nombre[:50]}" '
+                f'{resultado} → {categoria_origen} (forzado por URL)'
+            )
+            resultado = categoria_origen
+
+        return resultado
+
+    # =========================================================================
+    # Start requests
+    # =========================================================================
     def start_requests(self):
         for base_url, categoria in self.URLS:
             self.logger.info(f'[Falabella] ▶ {categoria} — {base_url}')
             yield self._make_request(base_url, categoria, page=1, retries=0)
 
-    # ──────────────────────────────────────────────────────────────────────────
+    # =========================================================================
+    # Make request (Playwright)
+    # =========================================================================
     def _make_request(self, base_url, categoria, page, retries=0):
         return scrapy.Request(
             f'{base_url}?page={page}',
@@ -66,23 +259,14 @@ class FalabellaSpider(scrapy.Spider):
                         'a[data-pod="catalyst-pod"]',
                         timeout=45000,
                     ),
-                    # Scroll lento por toda la página para disparar el
-                    # IntersectionObserver que renderiza las imágenes lazy.
-                    # Después esperamos a que el número de <img> deje de crecer,
-                    # lo que confirma que JS terminó de inyectar el DOM.
                     PageMethod('evaluate', """
                         async () => {
-                            // --- Paso 1: scroll lento hacia abajo ---
                             const altura = document.body.scrollHeight;
                             const pasos  = 12;
                             for (let i = 1; i <= pasos; i++) {
                                 window.scrollTo(0, (altura / pasos) * i);
                                 await new Promise(r => setTimeout(r, 400));
                             }
-
-                            // --- Paso 2: esperar a que las imágenes dejen de crecer ---
-                            // Reintentamos hasta 10 veces (5 seg máximo) comparando
-                            // cuántos <img> hay dentro de los pods en intervalos de 500 ms.
                             let anterior = 0;
                             let estable  = 0;
                             for (let intento = 0; intento < 10; intento++) {
@@ -92,14 +276,12 @@ class FalabellaSpider(scrapy.Spider):
                                 ).length;
                                 if (actual === anterior) {
                                     estable++;
-                                    if (estable >= 3) break;   // 3 lecturas iguales = listo
+                                    if (estable >= 3) break;
                                 } else {
-                                    estable   = 0;
-                                    anterior  = actual;
+                                    estable  = 0;
+                                    anterior = actual;
                                 }
                             }
-
-                            // --- Paso 3: pausa final de seguridad ---
                             await new Promise(r => setTimeout(r, 1000));
                         }
                     """),
@@ -114,7 +296,9 @@ class FalabellaSpider(scrapy.Spider):
             dont_filter=True,
         )
 
-    # ──────────────────────────────────────────────────────────────────────────
+    # =========================================================================
+    # Parse
+    # =========================================================================
     async def parse(self, response):
         page = response.meta.get('playwright_page')
         if page:
@@ -145,7 +329,9 @@ class FalabellaSpider(scrapy.Spider):
                 f'[Falabella] {categoria} | pág {pagina} — límite alcanzado.'
             )
 
-    # ──────────────────────────────────────────────────────────────────────────
+    # =========================================================================
+    # Handle error
+    # =========================================================================
     async def handle_error(self, failure):
         page = failure.request.meta.get('playwright_page')
         if page:
@@ -171,7 +357,9 @@ class FalabellaSpider(scrapy.Spider):
                 f'[Falabella] ⛔ {categoria} pág {pagina} — reintentos agotados.'
             )
 
-    # ──────────────────────────────────────────────────────────────────────────
+    # =========================================================================
+    # Extraer item de un pod
+    # =========================================================================
     def _extraer(self, pod, categoria):
         nombre = (
             pod.css('[id*="displaySubTitle"]::text').get()
@@ -190,14 +378,12 @@ class FalabellaSpider(scrapy.Spider):
         # ── Imagen ───────────────────────────────────────────────────────────
         img_url = None
 
-        # 1. src del <img> que contenga media.falabella
         for img in pod.css('img'):
             src = img.attrib.get('src', '')
             if 'media.falabella' in src and src.startswith('http'):
                 img_url = src
                 break
 
-        # 2. srcset del <img> que contenga media.falabella
         if not img_url:
             for img in pod.css('img'):
                 srcset = img.attrib.get('srcset', '')
@@ -208,7 +394,6 @@ class FalabellaSpider(scrapy.Spider):
                     if img_url:
                         break
 
-        # 3. srcset del <source> dentro de <picture>
         if not img_url:
             for source in pod.css('picture source'):
                 srcset = source.attrib.get('srcset', '')
@@ -271,6 +456,19 @@ class FalabellaSpider(scrapy.Spider):
             precio_original = precio_oferta
             precio_oferta   = None
 
+        # ── Reclasificación ──────────────────────────────────────────────────
+        categoria_final = self._reclasificar(nombre, categoria)
+
+        if categoria_final != categoria:
+            self.logger.debug(
+                f'[Falabella] RECLASIFICADO: "{nombre[:50]}" '
+                f'{categoria} → {categoria_final}'
+            )
+
+        # ── Descartar productos sin categoría válida ──────────────────────────
+        if categoria_final == 'otros':
+            return None
+
         # ── Item ─────────────────────────────────────────────────────────────
         item = FalabellaItem()
         item['nombre']    = nombre
@@ -278,14 +476,16 @@ class FalabellaSpider(scrapy.Spider):
         item['promocion'] = self._fmt(precio_oferta) if precio_oferta else None
         item['descuento'] = descuento_pct
         item['marca']     = marca
-        item['categoria'] = categoria
+        item['categoria'] = categoria_final
         item['enlace']    = href or None
         item['imagen']    = img_url or None
         item['vendedor']  = vendedor
         item['tienda']    = 'Falabella'
         return item
 
-    # ──────────────────────────────────────────────────────────────────────────
+    # =========================================================================
+    # Helpers
+    # =========================================================================
     def _a_int(self, texto):
         if not texto:
             return None
