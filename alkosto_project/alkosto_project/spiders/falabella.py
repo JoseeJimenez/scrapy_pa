@@ -57,14 +57,14 @@ class FalabellaSpider(scrapy.Spider):
     # 'otros' siempre está permitido (es el descarte universal).
     # =========================================================================
     _CATEGORIAS_PERMITIDAS = {
-        'computadores': {'computadores', 'otros'},
-        'tablets':      {'tablets',      'otros'},
-        'celulares':    {'celulares',    'otros'},
-        'impresoras':   {'impresoras',   'otros'},
-        'pantallas':    {'pantallas',    'otros'},
-        'consolas':     {'consolas',     'otros'},
-        'audio':        {'audio',        'otros'},
-    }
+    'computadores': {'computadores', 'pantallas', 'otros'},  # monitores gamer aparecen aquí
+    'tablets':      {'tablets',      'otros'},
+    'celulares':    {'celulares',    'otros'},
+    'impresoras':   {'impresoras',   'otros'},
+    'pantallas':    {'pantallas',    'otros'},
+    'consolas':     {'consolas',     'otros'},
+    'audio':        {'audio',        'otros'},
+}
 
     # =========================================================================
     # Keywords de clasificación (minúsculas, sin tildes)
