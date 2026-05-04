@@ -77,7 +77,6 @@ class TauretSpider(scrapy.Spider):
         )
         if enlaces_actuales and enlaces_actuales == enlaces_pagina_anterior:
             self.logger.info(f'  -> Contenido identico a pagina anterior. Fin de [{categoria_destino}]')
-            self._avanzar_categoria(idx_categoria, pagina)
             yield from self._request_siguiente_categoria(idx_categoria, pagina)
             return
 
