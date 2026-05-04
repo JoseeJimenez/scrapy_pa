@@ -41,7 +41,16 @@ class ComputerworkingItem(scrapy.Item):
     marca = scrapy.Field()
     tienda = scrapy.Field()
     imagen = scrapy.Field()
- 
+
+class TouretItem(scrapy.Item):
+    nombre = scrapy.Field()
+    precio = scrapy.Field()
+    enlace = scrapy.Field()
+    categoria = scrapy.Field()
+    marca = scrapy.Field()
+    tienda = scrapy.Field()
+    imagen = scrapy.Field()
+     
 class FalabellaItem(scrapy.Item):
     nombre    = scrapy.Field()
     precio    = scrapy.Field()   # precio original
@@ -53,3 +62,4 @@ class FalabellaItem(scrapy.Item):
     imagen    = scrapy.Field()
     vendedor  = scrapy.Field()
     tienda    = scrapy.Field()
+
