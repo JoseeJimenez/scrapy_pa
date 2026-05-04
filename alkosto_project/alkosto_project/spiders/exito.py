@@ -130,46 +130,53 @@ class ExitoSpider(scrapy.Spider):
         return f"$ {valor:,} COP".replace(',', '.')
 
     def categorizar_estricto(self, nombre):
-        # Normalizamos el nombre eliminando tildes y pasando a minúsculas
         n = self.eliminar_tildes(nombre.lower())
         
-        # Prioridad para Pantallas/TV
-        if any(x in n for x in ['monitor', 'pantalla', 'televisor', 'tv']):
-            return 'pantallas'
+        accesorios = ['cargador', 'cable usb', 'cubo', 'power bank', 'funda', 'estuche', 'vidrio templado']
+        if any(a in n for a in accesorios):
+            return 'otros'
 
-        # Definición de categorías con palabras clave expandidas
-        categorias = {
-            'audio': [
-                'parlante', 'bafle', 'audifonos', 'diadema', 'soundbar', 
-                'jbl', 'alexa', 'airpods', 'buds', 'bocina', 
-                'barra de sonido', 'teatro en casa', 'home theater', 
-                'torre de sonido', 'microfono', 'subwoofer'
-            ],
-            'celulares': [
-                'celular', 'smartphone', 'iphone', 'samsung galaxy', 
-                'motorola', 'reloj inteligente', 'apple watch', 'galaxy watch'
-            ],
-            'computadores': [
-                'portatil', 'laptop', 'desktop', 'pc', 'computador', 
-                'macbook', 'todo en uno', 'aio'
-            ],
-            'impresoras': [
-                'impresora', 'multifuncional', 'epson', 'hp', 
-                'canon', 'smart tank', 'ecotank', 'laserjet'
-            ],
-            'consolas': [
-                'playstation', 'xbox', 'nintendo', 'switch', 'consola', 'joystick'
-            ],
-            'tablets': [
-                'tablet', 'ipad', 'galaxy tab'
-            ]
-        }
+        palabras_audio = ['parlante', 'bafle', 'audifonos', 'diadema', 'soundbar', 'jbl', 'barra de sonido', 'teatro en casa']
+        if any(p in n for p in palabras_audio) or ('torre' in n and 'sonido' in n):
+            if not any(r in n for r in ['reloj', 'smartwatch', 'watch']):
+                return 'audio'
 
-        # Buscamos coincidencias
-        for cat, palabras in categorias.items():
-            if any(p in n for p in palabras):
-                return cat
-                
+        if any(x in n for x in ['portatil', 'laptop', 'desktop', 'computador', 'all in one', 'pc gamer']):
+            return 'computadores'
+        if 'torre' in n and 'cpu' in n:
+            return 'computadores'
+
+        marcas_celulares = ['samsung galaxy', 'iphone', 'motorola', 'xiaomi redmi', 'huawei', 'celular', 'smartphone', 'telefono']
+        if any(x in n for x in marcas_celulares):
+            if not any(t in n for t in ['tablet', 'ipad', 'tv', 'televisor']):
+                return 'celulares'
+
+        if any(x in n for x in ['tablet', 'ipad', 'galaxy tab', 'apple pencil', 'lapiz para tablet']):
+            return 'tablets'
+
+        if any(x in n for x in ['televisor', 'tv', 'monitor', 'pantalla']):
+            if 'proyector' not in n:
+                return 'pantallas'
+
+        palabras_consolas = ['playstation', 'ps5', 'ps4', 'xbox', 'nintendo', 'switch', 'consola', 'control para', 'joystick']
+        if any(x in n for x in palabras_consolas):
+            return 'consolas'
+
+        if any(x in n for x in ['impresora', 'multifuncional', 'epson']):
+            if 'camara' not in n:
+                return 'impresoras'
+
+        # 8. OTROS (Relojes, Proyectores, Cámaras, Línea Blanca, etc.)
+        palabras_otros = [
+            'reloj', 'smartwatch', 'watch', 'smart band', 
+            'proyector', 'mini proyector',
+            'camara', 'reflex',
+            'estufa', 'nevera', 'lavadora'
+        ]
+        
+        if any(o in n for o in palabras_otros):
+            return 'otros'
+            
         return 'otros'
     
     async def errback_close_page(self, failure):
