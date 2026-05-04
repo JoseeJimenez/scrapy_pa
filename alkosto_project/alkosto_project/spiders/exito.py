@@ -132,49 +132,50 @@ class ExitoSpider(scrapy.Spider):
     def categorizar_estricto(self, nombre):
         n = self.eliminar_tildes(nombre.lower())
         
-        accesorios = ['cargador', 'cable usb', 'cubo', 'power bank', 'funda', 'estuche', 'vidrio templado']
-        if any(a in n for a in accesorios):
-            return 'otros'
-
-        palabras_audio = ['parlante', 'bafle', 'audifonos', 'diadema', 'soundbar', 'jbl', 'barra de sonido', 'teatro en casa']
-        if any(p in n for p in palabras_audio) or ('torre' in n and 'sonido' in n):
-            if not any(r in n for r in ['reloj', 'smartwatch', 'watch']):
-                return 'audio'
-
-        if any(x in n for x in ['portatil', 'laptop', 'desktop', 'computador', 'all in one', 'pc gamer']):
-            return 'computadores'
-        if 'torre' in n and 'cpu' in n:
-            return 'computadores'
-
+        # 1. CELULARES (Prioridad para capturar Combos + Cargador)
+        # Si menciona una marca de celular o "iphone", va aquí aunque diga "+ cargador"
         marcas_celulares = ['samsung galaxy', 'iphone', 'motorola', 'xiaomi redmi', 'huawei', 'celular', 'smartphone', 'telefono']
         if any(x in n for x in marcas_celulares):
+            # Solo descartar si es explícitamente una tablet o TV
             if not any(t in n for t in ['tablet', 'ipad', 'tv', 'televisor']):
                 return 'celulares'
 
+        # 2. COMPUTADORES (Incluyendo Macbooks y Laptops)
+        # Agregamos 'macbook' y 'mac book' explícitamente
+        palabras_pc = ['portatil', 'laptop', 'desktop', 'computador', 'all in one', 'pc gamer', 'macbook', 'mac book']
+        if any(x in n for x in palabras_pc) or ('torre' in n and 'cpu' in n):
+            return 'computadores'
+
+        # 3. AUDIO (Blindando Airpods y Torres de Sonido)
+        palabras_audio = ['parlante', 'bafle', 'audifonos', 'diadema', 'soundbar', 'jbl', 'barra de sonido', 'airpods', 'buds']
+        if any(p in n for p in palabras_audio) or ('torre' in n and 'sonido' in n):
+            # Que no se confunda con relojes
+            if not any(r in n for r in ['reloj', 'smartwatch', 'watch']):
+                return 'audio'
+
+        # 4. TABLETS (Solo tablets y sus lápices)
         if any(x in n for x in ['tablet', 'ipad', 'galaxy tab', 'apple pencil', 'lapiz para tablet']):
             return 'tablets'
 
+        # 5. PANTALLAS
         if any(x in n for x in ['televisor', 'tv', 'monitor', 'pantalla']):
             if 'proyector' not in n:
                 return 'pantallas'
 
+        # 6. CONSOLAS
         palabras_consolas = ['playstation', 'ps5', 'ps4', 'xbox', 'nintendo', 'switch', 'consola', 'control para', 'joystick']
         if any(x in n for x in palabras_consolas):
             return 'consolas'
 
-        if any(x in n for x in ['impresora', 'multifuncional', 'epson']):
-            if 'camara' not in n:
-                return 'impresoras'
-
-        # 8. OTROS (Relojes, Proyectores, Cámaras, Línea Blanca, etc.)
-        palabras_otros = [
+        # 7. ACCESORIOS SUELTOS Y OTROS (Al final de la jerarquía)
+        # Aquí caen los cargadores solos, cables solos, relojes y línea blanca
+        accesorios_y_otros = [
+            'cargador', 'cable usb', 'cubo', 'power bank', 'funda', 
             'reloj', 'smartwatch', 'watch', 'smart band', 
-            'proyector', 'mini proyector',
-            'camara', 'reflex',
-            'estufa', 'nevera', 'lavadora'
+            'proyector', 'camara', 'estufa', 'nevera'
         ]
         
-        if any(o in n for o in palabras_otros):
+        if any(o in n for o in accesorios_y_otros):
             return 'otros'
             
         return 'otros'
