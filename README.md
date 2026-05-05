@@ -1,323 +1,128 @@
-# 🛒 Multi-Store Tech Scraper - Alkosto Edition
+# 🛒 Multi-Store Tech Scraper - Colombia Edition
 
 ![Python](https://img.shields.io/badge/Python-3.x-blue?logo=python&logoColor=white)
 ![Scrapy](https://img.shields.io/badge/Scrapy-2.8+-green?logo=scrapy)
+![Playwright](https://img.shields.io/badge/Playwright-Automated-orange?logo=playwright)
 ![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-brightgreen?logo=mongodb)
-![License](https://img.shields.io/badge/License-MIT-yellow)
+![Status](https://img.shields.io/badge/Repo-Privado-red)
 
-Un web scraper avanzado y automatizado diseñado para extraer información detallada de productos tecnológicos desde **Alkosto**, incluyen computadores, celulares y tablets.
+Un ecosistema avanzado de web scraping diseñado para la extracción masiva y automatizada de productos tecnológicos de las principales tiendas en Colombia. Este proyecto es una solución robusta para el monitoreo de precios y análisis de mercado en tiempo real.
 
 ## 📋 Tabla de Contenidos
 
 - [Descripción](#descripción)
-- [Características](#características)
+- [Tiendas Soportadas](#-tiendas-soportadas)
+- [Características Técnicas](#-características-técnicas)
 - [Requisitos](#requisitos)
 - [Instalación](#instalación)
-- [Configuración](#configuración)
-- [Uso](#uso)
+- [Uso y Ejecución](#-uso-y-ejecución)
 - [Estructura del Proyecto](#estructura-del-proyecto)
-- [Tecnologías](#tecnologías)
-- [Contribuciones](#contribuciones)
+- [Equipo de Desarrollo](#-equipo-de-desarrollo)
 
 ---
 
 ## 📝 Descripción
 
-Este proyecto implementa un web scraper profesional que automatiza la extracción de datos de productos tecnológicos de **Alkosto**. Utiliza las últimas tecnologías en scraping y es capaz de gestionar contenido dinámico generado por JavaScript.
+Este proyecto implementa un sistema multi-tienda capaz de navegar sitios web modernos con renderizado dinámico. Gracias a la integración de **Scrapy** y **Playwright**, los spiders pueden interactuar con interfaces complejas (React, Next.js, etc.) para extraer datos precisos de:
+- 💻 Computadores y Portátiles
+- 📱 Celulares y Tablets
+- 🎮 Componentes Gaming y Periféricos
 
 ### Casos de Uso:
-- 📊 Análisis competitivo de precios
-- 📈 Seguimiento de inventario
-- 💹 Comparativa de productos tecnológicos
-- 🔍 Investigación de mercado
+- 📊 **Análisis competitivo**: Comparativa entre las 6 tiendas tecnológicas más grandes del país.
+- 📈 **Histórico de precios**: Rastreo de variaciones y detección de ofertas reales.
+- 💹 **Business Intelligence**: Recolección de datos para toma de decisiones comerciales.
 
 ---
 
-## ⭐ Características
+## 🏢 Tiendas Soportadas
 
-### 🚀 Navegación Dinámica
-- Interacción automática con botones de "Cargar más"
-- Renderizado completo de JavaScript mediante **Playwright**
-- Gestión inteligente de elementos dinámicos
+El sistema cuenta con 6 spiders especializados y optimizados:
 
-### 📦 Bucle Multi-Categoría
-- Extracción automatizada de múltiples secciones en una sola ejecución
-- Soporte para:
-  - 💻 Computadores
-  - 📱 Celulares
-  - 📲 Tablets
-
-### 🔧 Procesamiento de Datos
-- ✅ Normalización de precios a formato numérico
-- ✅ Categorización automática basada en palabras clave
-- ✅ Extracción inteligente de marcas con lógica de fallback
-- ✅ Limpieza y validación de datos
-
-### 💾 Persistencia
-- Integración directa con **MongoDB Atlas**
-- Almacenamiento escalable en la nube
-- Sincronización automática de datos
-
-### ⚙️ Compatibilidad
-- Configuración optimizada de Asyncio para Windows
-- Compatible con sistemas Unix/Linux
-- Gestión automática de errores y reintentos
+| Tienda | Spider Name | Enfoque |
+| :--- | :--- | :--- |
+| **Alkosto** | `alkosto` | Líder en consumo masivo tech |
+| **Éxito** | `exito` | Gran retail nacional |
+| **Falabella** | `falabella` | Multinacional de retail |
+| **Tauret Computadores** | `tauretcomputadores` | Especialistas en Gaming/High-end |
+| **CompuLago** | `compulago` | Hardware y periféricos |
+| **CompuWorking** | `compuworking` | Soluciones corporativas y hardware |
 
 ---
 
-## 📋 Requisitos
+## ⭐ Características Técnicas
 
-- **Python**: 3.7 o superior
-- **Sistema Operativo**: Windows, macOS, Linux
-- **Base de Datos**: MongoDB Atlas (cuenta requerida)
-- **Conexión a Internet**: Estable
-
----
-
-## 🔧 Instalación
-
-### 1. Clonar el repositorio
-
-```bash
-git clone https://github.com/JoseeJimenez/scrapy_pa.git
-cd scrapy_pa
-```
-
-### 2. Crear un entorno virtual
-
-```bash
-# En Windows
-python -m venv venv
-venv\Scripts\activate
-
-# En macOS/Linux
-python3 -m venv venv
-source venv/bin/activate
-```
-
-### 3. Instalar dependencias
-
-```bash
-pip install -r requirements.txt
-```
-
-### 4. Instalar navegadores de Playwright
-
-```bash
-playwright install
-```
+- **Renderizado Dinámico**: Manejo de JavaScript mediante `scrapy-playwright`.
+- **Evasión de Bloqueos**: Rotación de cabeceras y gestión de tiempos de espera inteligentes.
+- **Pipelines de Limpieza**: Normalización automática de precios (quitar símbolos, puntos y convertir a tipo numérico).
+- **Persistencia en la Nube**: Conexión directa con clústeres de **MongoDB Atlas**.
 
 ---
 
-## ⚙️ Configuración
+## 🔧 Instalación y Configuración
 
-### 1. Variables de Entorno
+1. **Clonar el repositorio**:
+   ```bash
+   git clone https://github.com/JoseeJimenez/scrapy_pa.git
+   cd scrapy_pa
+   ```
 
-Crea un archivo `.env` en la raíz del proyecto:
+2. **Preparar el entorno**:
+   ```bash
+   python -m venv venv
+   # Activar: venv\Scripts\activate (Win) o source venv/bin/activate (Unix)
+   pip install -r requirements.txt
+   playwright install chromium
+   ```
 
-```env
-# MongoDB Atlas
-MONGO_URI=mongodb+srv://<usuario>:<contraseña>@<cluster>.mongodb.net/<base_de_datos>?retryWrites=true&w=majority
-
-# Configuración opcional
-PROXY_URL=<opcional>
-REQUEST_TIMEOUT=30
-MAX_RETRIES=3
-```
-
-### 2. Instalación de Navegadores
-
-```bash
-playwright install chromium
-```
+3. **Variables de Entorno**:
+   Configura tu archivo `.env` con la URI de tu base de datos:
+   ```env
+   MONGO_URI=tu_conexion_mongodb_atlas
+   ```
 
 ---
 
-## 🚀 Uso
+## 🚀 Uso y Ejecución
 
-### Ejecutar el Scraper
-
-```bash
-# Ejecutar todos los spiders
-scrapy crawl alkosto
-
-# Ejecutar un spider específico (computadores)
-scrapy crawl alkosto -a category=computadores
-
-# Con niveles de log
-scrapy crawl alkosto -L DEBUG
-```
-
-### Comandos Útiles
+Para ejecutar cualquiera de los 6 spiders disponibles:
 
 ```bash
-# Listar todos los spiders disponibles
-scrapy list
+# Ejemplo para ejecutar Tauret
+scrapy crawl tauretcomputadores
 
-# Ver información del proyecto
-scrapy info
-
-# Crear un nuevo spider
-scrapy genspider nuevo_spider ejemplo.com
+# Ejemplo para ejecutar Falabella con salida a archivo
+scrapy crawl falabella -o datos.json
 ```
 
 ---
 
 ## 📂 Estructura del Proyecto
 
-```
-scrapy_pa/
-├── README.md                      # Este archivo
-├── requirements.txt               # Dependencias del proyecto
-├── .gitignore                    # Archivos ignorados por Git
-└── alkosto_project/              # Proyecto principal de Scrapy
-    ├── scrapy.cfg               # Configuración de Scrapy
-    ├── alkosto_project/
-    │   ├── __init__.py
-    │   ├── items.py             # Definición de items/esquemas
-    │   ├── pipelines.py         # Procesamiento de datos
-    │   ├── settings.py          # Configuración global
-    │   ├── middlewares.py       # Middlewares personalizados
-    │   ├── spiders/             # Spiders (scrapers)
-    │   │   ├── __init__.py
-    │   │   └── alkosto.py       # Spider principal
-    │   └── utils/               # Utilidades
-    │       └── helpers.py
-    └── tests/                   # Pruebas unitarias
+```text
+alkosto_project/
+├── spiders/                 # Los 6 Spiders (Alkosto, Éxito, Falabella, etc.)
+├── items.py                 # Modelo de datos unificado
+├── pipelines.py             # Procesamiento y guardado en Mongo
+├── settings.py              # Configuración de Playwright y Scrapy
+└── utils/                   # Herramientas de apoyo
 ```
 
 ---
 
-## 🛠️ Tecnologías Utilizadas
+## 👥 Equipo de Desarrollo
 
-| Tecnología | Versión | Propósito |
-|-----------|---------|----------|
-| **Python** | 3.x | Lenguaje principal |
-| **Scrapy** | ≥2.8 | Framework de scraping |
-| **Playwright** | ≥1.40.0 | Automatización de navegador |
-| **scrapy-playwright** | 0.0.46-0.1.0 | Integración Scrapy-Playwright |
-| **PyMongo** | ≥4.0 | Controlador MongoDB |
-| **python-dotenv** | ≥1.0.0 | Gestión de variables de entorno |
-| **itemadapter** | ≥0.8 | Adaptador de items |
+Este proyecto fue desarrollado con dedicación por:
 
----
+*   **Lucho Jimenez**
+*   **Diego Serpa**
+*   **Cesar Jimenez**
+*   **Bibi Ledesma**
 
-## 📊 Ejemplos de Datos Extraídos
-
-### Estructura de Producto
-
-```python
-{
-    "nombre": "Computador Portátil Dell XPS 13",
-    "precio": 2899.99,
-    "marca": "Dell",
-    "categoría": "computadores",
-    "enlace": "https://www.alkosto.com/...",
-    "disponibilidad": "En stock",
-    "especificaciones": {
-        "procesador": "Intel i7",
-        "ram": "16GB",
-        "almacenamiento": "512GB SSD"
-    },
-    "fecha_extracción": "2026-04-29T10:30:00Z"
-}
-```
+### 🎓 Mención Especial
+Un agradecimiento total a nuestro profesor **Chavarriga**, quien nos guio en el proceso y nos dio las bases para montar este proyecto bien cartelúo.
 
 ---
-
-## ⚠️ Consideraciones Importantes
-
-### Ética y Legalidad
-- ⚠️ Respeta el archivo `robots.txt` del sitio
-- ⚠️ Revisa los términos de servicio de Alkosto
-- ⚠️ No sobrecargues los servidores (implementa delays)
-- ⚠️ Usa responsablemente
-
-### Mejores Prácticas
-- Implementa delays entre solicitudes
-- Usa rotación de user-agents
-- Maneja excepciones apropiadamente
-- Monitorea el consumo de recursos
-
----
-
-## 🐛 Solución de Problemas
-
-### Problema: Error de conexión a MongoDB
-```bash
-# Verifica tu cadena de conexión en .env
-# Asegúrate de que tu IP esté en la whitelist de MongoDB Atlas
-```
-
-### Problema: Playwright no carga
-```bash
-# Reinstala los navegadores
-playwright install --with-deps chromium
-```
-
-### Problema: Timeout en solicitudes
-```bash
-# Aumenta el timeout en settings.py
-DOWNLOAD_TIMEOUT = 60
-```
-
----
-
-## 📝 Logging y Monitoreo
-
-El scraper genera logs detallados:
-
-```
-2026-04-29 10:30:00 [scrapy.core.engine] INFO: Spider opened
-2026-04-29 10:30:02 [alkosto] INFO: Extrayendo productos de categoría: computadores
-2026-04-29 10:35:45 [alkosto] INFO: Total de productos extraídos: 1250
-```
-
----
-
-## 🤝 Contribuciones
-
-Las contribuciones son bienvenidas. Por favor:
-
-1. **Fork** el repositorio
-2. Crea una **rama** para tu feature (`git checkout -b feature/AmazingFeature`)
-3. **Commit** tus cambios (`git commit -m 'Add AmazingFeature'`)
-4. **Push** a la rama (`git push origin feature/AmazingFeature`)
-5. Abre un **Pull Request**
-
-### Reportar Bugs
-Si encuentras algún bug, por favor abre un **issue** con:
-- Descripción clara del problema
-- Pasos para reproducirlo
-- Tu entorno (SO, versión de Python, etc.)
-
----
-
-## 📄 Licencia
-
-Este proyecto está bajo la licencia **MIT**. Ver el archivo `LICENSE` para más detalles.
-
----
-
-## 📧 Contacto
-
-**Autor**: [JoseeJimenez](https://github.com/JoseeJimenez)
-
-Para preguntas o sugerencias, abre un **issue** en este repositorio.
-
----
-
-## 🙏 Agradecimientos
-
-- [Scrapy](https://scrapy.org/) - Framework de scraping
-- [Playwright](https://playwright.dev/) - Automatización de navegadores
-- [MongoDB](https://www.mongodb.com/) - Base de datos
-- La comunidad de código abierto
-
----
-
 <div align="center">
-
-**⭐ Si este proyecto te fue útil, considera darle una estrella ⭐**
-
+  <b>© 2026 - Proyecto Privado de Web Scraping</b>
 </div>
