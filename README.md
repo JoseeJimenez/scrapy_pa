@@ -120,7 +120,7 @@ Este proyecto fue desarrollado con dedicación por:
 *   **Bibi Ledesma**
 
 ### 🎓 Mención Especial
-Un agradecimiento total a nuestro profesor **Chavarriga**, quien nos guio en el proceso y nos dio las bases para montar este proyecto bien cartelúo.
+Un agradecimiento total a nuestro profesor **Chavarriga, Claude, Geminni, GithubCopilot**, quien nos guio en el proceso y nos dio las bases para montar este proyecto bien cartelúo.
 
 ---
 <div align="center">
