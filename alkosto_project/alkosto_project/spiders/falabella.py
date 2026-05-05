@@ -13,9 +13,9 @@ class FalabellaSpider(scrapy.Spider):
     name = 'falabella'
 
     custom_settings = {
-        'CONCURRENT_REQUESTS':            3,
-        'CONCURRENT_REQUESTS_PER_DOMAIN': 3,
-        'DOWNLOAD_DELAY':                 2,
+        'CONCURRENT_REQUESTS':            2,
+        'CONCURRENT_REQUESTS_PER_DOMAIN': 2,
+        'DOWNLOAD_DELAY':                 1,
         'RANDOMIZE_DOWNLOAD_DELAY':       True,
         'PLAYWRIGHT_DEFAULT_NAVIGATION_TIMEOUT': 60000,
         'PLAYWRIGHT_ABORT_REQUEST': lambda req: req.resource_type in ('font', 'media'),
@@ -50,28 +50,17 @@ class FalabellaSpider(scrapy.Spider):
         ('https://www.falabella.com.co/falabella-co/category/cat10550940/Audio',                  'audio'),
     ]
 
-    # =========================================================================
-    # Categorías permitidas por URL de origen.
-    # Si el clasificador por nombre da un resultado fuera de este set,
-    # la URL gana y se usa categoria_origen.
-    # 'otros' siempre está permitido (es el descarte universal).
-    # =========================================================================
     _CATEGORIAS_PERMITIDAS = {
-    'computadores': {'computadores', 'pantallas', 'otros'},  # monitores gamer aparecen aquí
-    'tablets':      {'tablets',      'otros'},
-    'celulares':    {'celulares',    'otros'},
-    'impresoras':   {'impresoras',   'otros'},
-    'pantallas':    {'pantallas',    'otros'},
-    'consolas':     {'consolas',     'otros'},
-    'audio':        {'audio',        'otros'},
-}
-
-    # =========================================================================
-    # Keywords de clasificación (minúsculas, sin tildes)
-    # =========================================================================
+        'computadores': {'computadores', 'pantallas', 'otros'},
+        'tablets':      {'tablets',      'otros'},
+        'celulares':    {'celulares',    'otros'},
+        'impresoras':   {'impresoras',   'otros'},
+        'pantallas':    {'pantallas',    'otros'},
+        'consolas':     {'consolas',     'otros'},
+        'audio':        {'audio',        'otros'},
+    }
 
     _EXCLUIR = [
-        'proyector', 'videoproyector', 'mini proyector',
         'disco menstrual', 'copa menstrual', 'tampon', 'toalla higienica',
         'camiseta', 'camisa ', 'pantalon', 'zapato', 'tenis ',
         'reloj ', 'pulsera ', 'collar ', 'anillo ',
@@ -81,48 +70,257 @@ class FalabellaSpider(scrapy.Spider):
         'cuaderno', 'boligrafo', 'tijeras',
     ]
 
+    # NOTA: Se eliminó 'cable ', 'adaptador' y 'convertidor' genéricos
+    # porque interceptaban productos válidos (celulares, audio, consolas)
     _CABLES = [
-        'cable ', 'cable hdmi', 'cable usb', 'cable vga', 'cable dp',
-        'adaptador', 'convertidor', 'extension usb', 'extensor usb',
+        'cable hdmi', 'cable usb', 'cable vga', 'cable dp',
+        'extension usb', 'extensor usb',
         'splitter', 'hub usb', 'bracket',
+        'cable de carga control',   # cable de consola, no celular
+        'cable audio y video wii',
+        'cable de poder ps',
     ]
 
     _IMPRESORAS = [
-        'impresora', 'multifuncional', 'plotter',
-        'escaner', 'printer',
+        'impresora', 'multifuncional', 'multifuncion', 'plotter',
+        'escaner', 'printer', 'fotocopiadora', 'copiadora',
+        # Tintas y consumibles — van a impresoras, no a otros
+        'tinta ', 'tintas ', 'cartucho', 'cartuchos',
+        'toner', 'tóner',
+        'botella tinta', 'botella de tinta',
+        'kit tinta', 'kit tintas', 'kit de tinta',
+        'sistema de tinta', 'sistema tinta',
+        'cabezal', 'cabezal impresion', 'cabezal de impresion',
+        'recarga tinta', 'rellenar cartucho',
+        'ribbon ', 'tinta ribbon',
+        # Extras
+        'ecotank',
+        'scanncut', 'scancut',
+        'caja de mantenimiento',
+        'papel adhesivo dk',
+        'cinta plastico',
+        'cinta d1',
+        'letratag', 'rotuladora',
+        'botella t544', 'botella btd',
+        'unidad de imagen compatible',
+        'tambor creacion de imagenes',
+        'destructora', 'picadora de papel',
+        'scanner ads',
+        'caja mantenimiento pxmb',
     ]
 
     _TABLETS = [
         'tablet', 'tableta', 'ipad',
         'galaxy tab', ' tab s', ' tab a', ' tab p',
         'mediapad', 'lenovo tab', 'fire tablet',
+        'kindle', 'paperwhite', 'kindle scribe',
+        'kobo ',
+        # Extras
+        'megapad',
+        'tab tb',
+        'pizarra lcd',
+        'digitalizador de firma',
+        'pantalla lcd tactil capacitiva hdmi raspberry',
+        'pantalla display raspberry',
     ]
 
     _CELULARES = [
         'celular', 'smartphone', 'iphone',
-        'galaxy s', 'galaxy a', 'galaxy z', 'galaxy m',
+        'galaxy s', 'galaxy a', 'galaxy z', 'galaxy m', 'galaxy f',
         'redmi ', ' poco ', 'moto g', 'moto e', ' pixel ',
         'find x', 'reno ',
+        # Extras
+        's25 ultra',
+        'a36 5g',
+        'note 50',
+        'note 60',
+        'v50 512',
+        'y19 s ',
+        'blade l220',
+        'smart 20 4g',
+        'nubia v80',
+        'cel5g magic',
+        'a26 8ram',
+        'play9a',
+        'm3000 profesional',
+        'magic8l',
     ]
 
     _CONSOLAS = [
-        'playstation', 'ps5 ', 'ps4 ', 'ps3 ',
-        'xbox series', 'xbox one',
-        'nintendo switch', 'switch lite', 'switch oled',
+        'playstation', 'ps5 ', 'ps4 ', 'ps3 ', '5 slim', '4 slim', '4 pro',
+        'xbox series', 'xbox one', 'xbox 360',
+        'nintendo switch', 'switch lite', 'switch oled', 'switch 2',
         'steam deck', 'game boy',
+        'meta quest', 'oculus quest', 'quest 3', 'quest 2', 'vr headset',
+        # Videojuegos físicos/digitales
+        'videojuego', 'video juego',
+        'mario kart', 'mario odyssey', 'mario party', 'mario bros',
+        'mario galaxy', 'mario wonder', 'mario tennis',
+        'zelda ', 'breath of the wild', 'tears of the kingdom',
+        'pokemon ', 'pokémon ',
+        'kirby ', 'metroid', 'splatoon', 'smash ',
+        'fifa ', 'ea sports fc', 'nba 2k', 'mlb ',
+        'call of duty', 'god of war', 'spider-man',
+        'assassin', 'far cry', 'cyberpunk', 'elden ring',
+        'street fighter', 'tekken ', 'mortal kombat',
+        'minecraft ', 'sonic ', 'halo ', 'forza ',
+        'hogwarts', 'resident evil', 'diablo ', 'overwatch',
+        'amiibo',
+        # Extras — consolas sin keyword claro
+        'series s ', 'series x ',
+        'consola series',
+        'consola juegos',
+        'switch™', ' switch 2',
+        # Accesorios de consola
+        'control compatible con play',
+        'control inalambrico dualsense',
+        'control pro para consola',
+        'control joystick inalambrico nlntendo',
+        'control joystick inalambrico nintendo',
+        'control robot white', 'control carbon black',
+        'control series shock', 'control series s x',
+        'control one series',
+        'control storm breaker',
+        'control inalambrico series sx',
+        'control backbone',
+        'control licenciado xbox',
+        'control hand grip',
+        'control joystick super nova',
+        'control inalambrico cyclone',
+        'control inalambrico easysmx',
+        'controlador x2 pro',
+        'clutch gladiate',
+        'kontrol freek',
+        'joycon',
+        'dualsense edge',
+        'analogico para control',
+        '2x analogo electromagnetico hall',
+        'soporte base pared 2 controles',
+        'silicona protectora',
+        'funda en acrilico protector para mando xbox',
+        'carcasa protector funda flexible para nintendo wii',
+        'vidrio templado para consola',
+        'estuche rigido relieve',
+        'estuche negro + acrilico',
+        'estuche de viaje rigido',
+        'estuche para consola',
+        'maleta estuche de viaje para switch',
+        'soporte plegable para decodificador',
+        'flex mod 101',
+        'adaptador de corriente cargador compatible con switch',
+        'adaptador nintendo switch type-c',
+        'handgrip soporte para joycon',
+        'cable hdmi 2.1 8k',
+        'bateria recargable + cable usb-c',
+        'adaptador inalambrico xbox',
+        'x2 cinta cable flex microfono v1 para sony ps5',
+        'accesorio switch',
+        'camera switch',
+        # Juegos extras
+        'grand theft auto',
+        'donkey kong bananza', 'donkey kong country',
+        'tony hawk',
+        'one piece odyssey',
+        'dragon ball fighterz',
+        'ori the collection',
+        'gris - switch', 'neva - switch',
+        'marvel ultimate alliance',
+        'xenoblade',
+        'triangle strategy',
+        'fire emblem',
+        'shin megami tensei',
+        'streets of rage',
+        'tactics ogre',
+        'prinny presents',
+        'story of seasons',
+        'phantom brave',
+        'stray - ',
+        'chrono cross',
+        'atelier yumia',
+        'final fantasy ix',
+        'the caligula effect',
+        'horizon forbidden west',
+        'yasha legends',
+        'daemon x machina',
+        'dead space',
+        'trials of mana',
+        'ys x nordics',
+        'farmagia',
+        'rune factory',
+        'sword of the necromancer',
+        'blazblue',
+        'black myth wukong',
+        'the diofield chronicle',
+        'visions of mana',
+        'death stranding',
+        'legacy of kain',
+        'suikoden',
+        'dragon quest iii',
+        'the king of fighters',
+        'the rumble fish',
+        'evil west',
+        'tales of graces',
+        'tales of symphonia',
+        'asterix & obelix',
+        'fantasian neo dimension',
+        'read only memories',
+        'five nights at freddy',
+        'gears 5',
+        'my hero one',
+        'eiyuden chronicle',
+        'star ocean',
+        'hades - switch',
+        'luigi',
+        'animal crossing',
+        'super mario 3d world',
+        'marvel vs capcom',
+        'capcom fighting collection',
+        'pokemon legends z',
+        'super mario 3d all',
+        'fc 25 play',
+        'spirit of the north',
+        'lost judgment',
+        'elrentaros',
+        'estuche game traveler',
+        'set 22 en 1 hand grip',
+        'carga y juega compatible con series',
+        'kit carga y juega 360',
+        'volante palanca y pedal gamer',
+        'palanca de cambios shifter gaming',
+        'volante xbsx racing',
+        'asiento de carreras',
+        'pasta termica arctic',
     ]
 
-    # Keywords inequívocos de computador (sin "portatil" suelto)
     _COMPUTADORES_DIRECTOS = [
         'laptop', 'notebook', 'macbook', 'chromebook', 'ultrabook',
         'todo en uno', 'todo-en-uno', 'all in one',
         'pc gamer', 'pc escritorio', 'pc de escritorio',
-        'desktop pc', 'mini pc',
+        'desktop pc', 'mini pc', 'desktop gaming',
         'computador', 'computadora',
+        'torre gamer', 'torre pc', 'cpu gamer',
+        'gabinete torre',
+        # Líneas HP
+        'victus', 'pavilion', 'envy ', 'spectre', 'omen ',
+        'probook', 'elitebook', 'zbook',
+        # Líneas Lenovo
+        'ideapad', 'thinkpad', 'legion ', 'yoga ',
+        # Líneas ASUS
+        'vivobook', 'zenbook', 'rog ', 'tuf gaming',
+        # Líneas Dell
+        'inspiron', 'xps ', 'latitude', 'vostro',
+        # Líneas Acer
+        'swift ', 'aspire ', 'nitro ', 'predator',
+        'extensa ', 'travelmate',
+        # Líneas Toshiba/Dynabook
+        'dynabook', 'portege', 'satellite',
+        # Otros
+        'surface ',
+        'galaxy book',
+        'matebook',
+        ' loq ',
     ]
 
-    # Contexto de hardware que confirma que "portatil" es un computador
-    # y no una impresora/parlante/cámara portátil
     _CONTEXTO_HW = [
         'core i3', 'core i5', 'core i7', 'core i9',
         'ryzen 3', 'ryzen 5', 'ryzen 7', 'ryzen 9',
@@ -133,6 +331,11 @@ class FalabellaSpider(scrapy.Spider):
         'pantalla 13', 'pantalla 14', 'pantalla 15', 'pantalla 16',
         '13 pulgadas', '14 pulgadas', '15 pulgadas', '16 pulgadas',
         'gamer portatil', 'gaming portatil',
+        'rtx 3050', 'rtx 3060', 'rtx 3070', 'rtx 3080',
+        'rtx 4050', 'rtx 4060', 'rtx 4070', 'rtx 4080',
+        'gtx 1650', 'gtx 1660',
+        ' fhd ', 'fhd "', ' led 15', ' led 14', ' led 13',
+        'led 15,6', 'led 14,', 'led 13,',
     ]
 
     _PANTALLAS = [
@@ -141,6 +344,22 @@ class FalabellaSpider(scrapy.Spider):
         ' monitor ', 'monitor gamer', 'monitor curvo', 'monitor led',
         'monitor ips', 'monitor 4k', 'gaming monitor',
         'pantalla pc',
+        # Modelos de TV sin keyword explícito
+        'bravia ', 'crystal uhd', ' qled', ' oled',
+        'un32t', 'un43t', 'un50t', 'un55t', 'un65t',
+        'tcl|',
+        # Extras
+        'marco tactil',
+        'touch screen',
+        'pantalla hd portatil recargable',
+        'extensor de pantalla triple',
+        'pantalla 24 pulgadas inteligente',
+        'wandr - centro de entretenimiento',
+        'pantalla para proyector',
+        'tv 65\"',
+        'ua8050',
+        'soporte para tv pared',
+        'pantalla lcd tactil',
     ]
 
     _AUDIO = [
@@ -152,6 +371,84 @@ class FalabellaSpider(scrapy.Spider):
         'equipo de sonido', 'minicomponente', 'subwoofer',
         'speaker bluetooth', 'radio bluetooth', 'radio portatil',
         'tocadiscos', 'turntable',
+        # Modelos JBL sin keyword genérico
+        'partybox', 'go4 ', 'go4squad',
+        'charge 6', 'charge 5', 'charge 4',
+        'flip 6', 'flip 7', 'flip 5',
+        'xtreme ', 'boombox', 'pulse 5', 'clip 5', 'clip 4',
+        'jbl bar', 'jbl cinema',
+        # Audífonos por modelo
+        'airpods', 'air pods',
+        'galaxy buds', 'galaxy buds4', 'freebuds',
+        'soundpeats', 'jabra ',
+        'jbl tune', 'jbl live', 'jbl free', 'jbl reflect',
+        'jbl endurance',
+        'sony wh', 'sony wf', 'sony linkbuds',
+        'beats studio', 'beats fit', 'beats flex', 'beats powerbeats',
+        'anker soundcore',
+        # Extras
+        'torre de sonido',
+        'cabina activa',
+        'cabina de sonido',
+        'cabina torre de sonido',
+        'cabina sonivox',
+        'microfono', 'micrófono',
+        'microfonos', 'micrófonos',
+        'lark m2',
+        'by-v20', 'by-v1',
+        'mic mini dual',
+        'mic 3 negro', 'mic 3 (2tx',
+        'quantum stream studio',
+        'sm57 instrumental',
+        'pm-500 usb',
+        'nt1 5ta gen',
+        'pga58',
+        'sv200', 'sv100', ',sv100',
+        'cmteck',
+        'sistema inalambrico con 2 microfonos',
+        'sistema inalambrico doble microfono',
+        'amplificador de voz portatil',
+        'amplificador megafono',
+        'grabadora de audio', 'grabadora de voz',
+        'icd-ux570', 'dr-05x',
+        'h4essential',
+        'mezclador tarjeta de sonido',
+        'mezclador de audio',
+        'tarjeta de sonido externa',
+        'wave beam 2',
+        'audifonos t110',
+        'audifono t110',
+        'diadema studio pro',
+        'soundgear frames',
+        'sub1 modulo de bajos',
+        'audio pack superficie',
+        'l1 pro ',
+        's1 pro',
+        'funda play - through para s1',
+        'transmisor de instrumentos inalambrico',
+        'transmisor inalambrico de microfono',
+        'one box xboom',
+        'torre de sonido party rocker',
+        'authentics 300',
+        'receptor bluetooth para auto',
+        'soporte x 2 para parlantes',
+        'walkie talkie',
+        'radio am-fm',
+        'radio fm digital',
+        'radio pastilla',
+        'radio digital portatil',
+        'radio vintage bluetooth',
+        'radio analogico',
+        'planta solar portatil 3 bombillas radio',
+        'radios de comunicacion',
+        'cable de audio plug 3.5',
+        'cable adaptador convertidor plug 3.5',
+        'adaptador audio 30 pines bluetooth',
+        'adaptador audio digital a analogico',
+        'bluetooth audio receptor 30 pines',
+        'microfono inalambrico lavalier',
+        'microfono lark',
+        'kit de microfonos inalambricos creators',
     ]
 
     _PERIFERICOS = [
@@ -168,7 +465,6 @@ class FalabellaSpider(scrapy.Spider):
     # =========================================================================
     @staticmethod
     def _norm(texto):
-        """Minúsculas, sin tildes, con espacios en bordes para matching exacto."""
         return (
             ' ' + texto.lower()
             .replace('á', 'a').replace('é', 'e').replace('í', 'i')
@@ -182,15 +478,13 @@ class FalabellaSpider(scrapy.Spider):
         return any(k in n for k in keywords)
 
     # =========================================================================
-    # Reclasificación con sistema de prioridades + validación por URL
+    # Reclasificación
     # =========================================================================
     def _reclasificar(self, nombre, categoria_origen):
         n = self._norm(nombre)
 
-        # ── Clasificador por nombre (10 niveles) ──────────────────────────────
-
         if self._hit(n, self._EXCLUIR):
-            resultado = 'otros'
+            resultado = 'excluir'
         elif self._hit(n, self._CABLES):
             resultado = 'otros'
         elif self._hit(n, self._IMPRESORAS):
@@ -204,12 +498,10 @@ class FalabellaSpider(scrapy.Spider):
         elif self._hit(n, self._COMPUTADORES_DIRECTOS):
             resultado = 'computadores'
         elif 'portatil' in n and self._hit(n, self._CONTEXTO_HW):
-            # "portatil" suelto solo clasifica si hay contexto de hardware real.
-            # Evita: "Impresora Portátil Bluetooth", "Parlante Portátil JBL".
+            resultado = 'computadores'
+        elif self._hit(n, self._CONTEXTO_HW):
             resultado = 'computadores'
         elif self._hit(n, self._PANTALLAS):
-            # Va DESPUÉS de computadores: "PC Gamer con Monitor 27"
-            # ya clasificó arriba y nunca llega aquí.
             resultado = 'pantallas'
         elif self._hit(n, self._AUDIO):
             resultado = 'audio'
@@ -219,19 +511,15 @@ class FalabellaSpider(scrapy.Spider):
             self.logger.debug(f'[Falabella] SIN CATEGORIA: "{nombre[:60]}"')
             resultado = 'otros'
 
-        # ── Validación por URL ────────────────────────────────────────────────
-        # Si el clasificador por nombre da una categoría incompatible con la
-        # URL de origen, la URL gana.
-        # Ejemplo: un producto en la URL de computadores nunca puede salir
-        # como 'pantallas' o 'audio' — forzamos a categoria_origen.
-        # 'otros' siempre se respeta (descarte universal).
-        permitidas = self._CATEGORIAS_PERMITIDAS.get(categoria_origen)
-        if permitidas and resultado not in permitidas:
-            self.logger.debug(
-                f'[Falabella] URL-OVERRIDE: "{nombre[:50]}" '
-                f'{resultado} → {categoria_origen} (forzado por URL)'
-            )
-            resultado = categoria_origen
+        # Validación por URL: solo se salta si es 'excluir'.
+        if resultado != 'excluir':
+            permitidas = self._CATEGORIAS_PERMITIDAS.get(categoria_origen)
+            if permitidas and resultado not in permitidas:
+                self.logger.debug(
+                    f'[Falabella] URL-OVERRIDE: "{nombre[:50]}" '
+                    f'{resultado} → {categoria_origen} (forzado por URL)'
+                )
+                resultado = categoria_origen
 
         return resultado
 
@@ -465,8 +753,8 @@ class FalabellaSpider(scrapy.Spider):
                 f'{categoria} → {categoria_final}'
             )
 
-        # ── Descartar productos sin categoría válida ──────────────────────────
-        if categoria_final == 'otros':
+        # Descartamos solo productos explícitamente excluidos
+        if categoria_final == 'excluir':
             return None
 
         # ── Item ─────────────────────────────────────────────────────────────
