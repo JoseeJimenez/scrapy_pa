@@ -174,10 +174,16 @@ class TauretSpider(scrapy.Spider):
                 return 'consolas'
             return 'otros'
         if categoria_destino == 'perifericos':
+            # Audio (incluye altavoces/parlantes y también diademas/audífonos)
             if any(k in n for k in (
+                # Parlantes / audio
                 'altavoz', 'altavoces', 'parlante', 'speaker', 'bocina',
-                'audifono', 'audifonos', 'auricular', 'headset', 'earphone',
-                'soundbar', 'barra de sonido', 'subwoofer'
+                'soundbar', 'barra de sonido', 'subwoofer',
+                # Audífonos / diademas
+                'audifono', 'audifonos', 'audífono', 'audífonos',
+                'diadema', 'diademas',
+                'auricular', 'auriculares',
+                'headset', 'earphone', 'earphones',
             )):
                 return 'audio'
             return 'otros'
