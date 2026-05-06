@@ -92,7 +92,6 @@ class ExitoSpider(scrapy.Spider):
             else:
                 item['descuento'] = None
 
-            # Calificación
             calif_selector = p.css('[class*="ratings-calification"]::text, [class*="ratingInline"]::text').get()
             item['calificacion'] = None
             if calif_selector:
@@ -102,13 +101,11 @@ class ExitoSpider(scrapy.Spider):
                     if 0 < val <= 5.0:
                         item['calificacion'] = val
 
-            # Imagen y Tienda
             imgs = p.css('img::attr(src)').getall() + p.css('img::attr(data-src)').getall()
             img_final = next((i for i in imgs if i and 'vtexassets' in i), None)
             item['imagen'] = response.urljoin(img_final) if img_final else None
             item['tienda'] = 'Éxito'
 
-            # --- CATEGORIZACIÓN FINAL ---
             cat = self.categorizar_estricto(item['nombre'])
             if cat is None: return None
             
@@ -131,16 +128,11 @@ class ExitoSpider(scrapy.Spider):
         n = self.eliminar_tildes(nombre.lower().strip())
         tiene_mas = '+' in n
 
-        # ── EXCLUSIONES TOTALES ────────────────────────────────────────────
         if any(p in n for p in ['estufa', 'minibar', 'nevera', 'refrigerador',
                                 'lavadora', 'secadora', 'microondas']):
             return None
 
-        # ══════════════════════════════════════════════════════════════════
-        # PASO 1: DETECTAR COMPONENTES PRESENTES EN EL NOMBRE
-        # Cada función devuelve True si el producto ES de esa categoría
-        # (no si solo la menciona de pasada)
-        # ══════════════════════════════════════════════════════════════════
+       
 
         def es_computador():
             return any(p in n for p in [
@@ -156,7 +148,6 @@ class ExitoSpider(scrapy.Spider):
             ]) or n.startswith('aio ')
 
         def es_celular():
-            # Solo patrones que inequívocamente son un teléfono
             patrones = [
                 'celular ', 'smartphone',
                 'iphone 1', 'iphone 2', 'iphone se', 'iphone pro', 'iphone plus',
@@ -174,7 +165,6 @@ class ExitoSpider(scrapy.Spider):
                 'tecno spark', 'tecno camon',
                 'realme ', 'oneplus ', 'oppo a', 'oppo reno',
             ]
-            # Excluir si menciona "compatible con" o "para"
             es_ref = any(p in n for p in [
                 'compatible con', 'para iphone', 'para samsung',
                 'para celular', 'generacion compatible', 'gen compatible',
@@ -207,18 +197,15 @@ class ExitoSpider(scrapy.Spider):
                 'barra de sonido', 'torre de sonido', 'soundbar',
                 'earbuds', 'earphones',
                 'partybox', 'boombox', 'bocina ',
-                # JBL — líneas de producto específicas
                 'jbl flip', 'jbl charge', 'jbl xtreme', 'jbl go',
                 'jbl pulse', 'jbl bar', 'jbl tune', 'jbl wave',
                 'jbl vibe', 'jbl endurance', 'jbl reflect', 'jbl grip',
-                # Otras marcas audio
                 'bose quietcomfort', 'bose soundlink', 'bose sport',
                 'bose s1', 'bose s2',
                 'sony wh', 'sony wf', 'sony xb',
                 'marshall ', 'soundcore', 'beats ',
                 'microfono ',
                 'xboom ',
-                # Airpods / buds — líneas específicas
                 'airpods pro', 'airpods max', 'airpods 4', 'airpods 3',
                 'airpods 2', 'galaxy buds', 'buds pro', 'buds2', 'buds3',
                 'freebuds', 'earfun', 'jabra ',
@@ -240,7 +227,6 @@ class ExitoSpider(scrapy.Spider):
                 'impresora ', 'multifuncional ', 'plotter ',
                 'smart tank', 'ink tank', 'deskjet', 'laserjet',
                 'pixma', 'ecotank', 'tinta continua',
-                # tinta/consumible de impresora también va aquí
                 'kit de tinta', 'cartucho ', 'toner ', 'tinta epson',
                 'tinta hp', 'tinta canon',
             ])
@@ -250,7 +236,6 @@ class ExitoSpider(scrapy.Spider):
                 'power bank', 'powerbank',
                 'cargador ', 'cable usb', 'cable tipo c', 'cable lightning',
                 'adaptador ',
-                # Relojes / wearables — siempre otros, incluso en combo
                 'smartwatch ', 'galaxy fit', 'galaxy watch', 'apple watch',
                 'amazfit', 'garmin ', 'mi band', 'honor band',
                 'reloj inteligente', 'reloj smart', 'smart watch',
@@ -263,9 +248,6 @@ class ExitoSpider(scrapy.Spider):
                 'proyector ',
             ])
 
-        # ══════════════════════════════════════════════════════════════════
-        # PASO 2: MAPEAR QUÉ CATEGORÍAS ESTÁN PRESENTES
-        # ══════════════════════════════════════════════════════════════════
         presentes = {
             'computadores': es_computador(),
             'celulares':    es_celular(),
@@ -279,43 +261,28 @@ class ExitoSpider(scrapy.Spider):
 
         cats_presentes = [c for c, v in presentes.items() if v]
 
-        # ══════════════════════════════════════════════════════════════════
-        # PASO 3: PRODUCTO SIMPLE (una sola categoría detectada)
-        # ══════════════════════════════════════════════════════════════════
         if len(cats_presentes) == 1:
             return cats_presentes[0]
 
-        # ══════════════════════════════════════════════════════════════════
-        # PASO 4: COMBOS Y DESEMPATES (dos o más categorías detectadas)
-        # ══════════════════════════════════════════════════════════════════
         p = presentes  # alias corto
 
-        # — Consola siempre gana si está presente —
         if p['consolas']:
             return 'consolas'
 
-        # — Impresora gana sobre computadores (Epson F170 Sublimación) —
         if p['impresoras']:
             return 'impresoras'
 
-        # — Combos con celular —
         if p['celulares']:
-            # Celular + {reloj, cargador, audífonos, tablet} → celulares
             if any(p[c] for c in ['otros', 'audio', 'tablets']):
                 return 'celulares'
             return 'celulares'
 
-        # — Combos con tablet —
         if p['tablets']:
-            # Tablet + audífonos → tablets
             if p['audio']:
                 return 'tablets'
             return 'tablets'
 
-        # — Combos audio + otros (reloj + audífonos) → audio —
         if p['audio'] and p['otros']:
-            # Si el "otro" es un reloj/wearable solo, va a audio
-            # (Reloj Smart Watch + Audífonos I8 Ultra → audio)
             tiene_reloj = any(x in n for x in [
                 'watch', 'reloj', 'smartwatch', 'band '
             ])
@@ -324,28 +291,21 @@ class ExitoSpider(scrapy.Spider):
             ])
             if tiene_reloj and tiene_audio:
                 return 'audio'
-            # Si el "otro" es cargador/accesorio → otros
             return 'otros'
 
-        # — Computadores vs pantallas: AIO puede tener 'monitor' en nombre —
         if p['computadores'] and p['pantallas']:
             return 'computadores'
 
-        # — Pantallas ganan sobre otros —
+        
         if p['pantallas']:
             return 'pantallas'
 
-        # — Audio solo —
         if p['audio']:
             return 'audio'
 
-        # — Computadores solo —
         if p['computadores']:
             return 'computadores'
 
-        # ══════════════════════════════════════════════════════════════════
-        # PASO 5: NINGUNA CATEGORÍA DETECTADA → otros
-        # ══════════════════════════════════════════════════════════════════
         if not cats_presentes:
             return 'otros'
 
