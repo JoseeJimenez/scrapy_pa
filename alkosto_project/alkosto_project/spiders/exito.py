@@ -264,7 +264,7 @@ class ExitoSpider(scrapy.Spider):
         if len(cats_presentes) == 1:
             return cats_presentes[0]
 
-        p = presentes  # alias corto
+        p = presentes 
 
         if p['consolas']:
             return 'consolas'
