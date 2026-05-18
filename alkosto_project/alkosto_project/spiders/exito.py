@@ -72,7 +72,6 @@ class ExitoSpider(scrapy.Spider):
             item['marca'] = p.css('h3[class*="brand"]::text').get('').strip()
             item['enlace'] = response.urljoin(p.css('a::attr(href)').get())
 
-            # Lógica de Precios
             precios_raw = p.xpath('.//*[contains(text(), "$")]/text()').getall()
             precios_num = sorted(list(set(self.limpiar_precio(t) for t in precios_raw if self.limpiar_precio(t) > 1000)), reverse=True)
             
