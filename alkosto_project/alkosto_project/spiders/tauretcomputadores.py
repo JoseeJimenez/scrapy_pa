@@ -58,27 +58,24 @@ class TauretSpider(scrapy.Spider):
             PageMethod('wait_for_selector', 'ul.listado-productos', timeout=20000),
         ]
 
-        # Si no es la pagina 1, hacer click en el numero de pagina.
-        # Los <a> de paginación no tienen href; el click cambia el DOM.
+        
         if pagina > 1:
-            # Selector por texto: <a class="page-link">2</a>
-            # playwright permite :has-text() en selectores CSS.
+           
             pagina_selector = f"ul.paginate-links a.page-link:has-text('{pagina}')"
             methods += [
                 PageMethod('click', pagina_selector),
-                # Esperar un momento a que el front actualice el listado.
+                
                 PageMethod('wait_for_timeout', 1500),
             ]
 
-            # Esperar a que cambie el primer producto (si cambia) o al menos
-            # a que el paginador marque la pagina como activa.
+           
             active_selector = f"ul.paginate-links li.active a.page-link:has-text('{pagina}')"
             methods += [
                 PageMethod('wait_for_selector', active_selector, timeout=15000),
                 PageMethod('wait_for_timeout', 800),
             ]
 
-        # Scroll para asegurar que cargue imágenes/productos si hay lazy-load
+       
         methods += [
             PageMethod('evaluate', """
                 async () => {
@@ -128,7 +125,7 @@ class TauretSpider(scrapy.Spider):
             except Exception as e:
                 self.logger.error(f'Error #{idx}: {e}')
 
-        # --- Paginación real (basada en el paginador del DOM) ---
+       
         todas = response.css('ul.paginate-links li.number a.page-link::text').getall()
         activa = response.css('ul.paginate-links li.active.number a.page-link::text').get('')
 
@@ -146,7 +143,7 @@ class TauretSpider(scrapy.Spider):
             yield self._make_request(url_base, categoria_destino, url_base, siguiente, idx_categoria)
             return
 
-        # --- Categoria terminada ---
+
         self.logger.info(f'URL [{categoria_destino}] completada en {pagina} paginas')
         yield from self._request_siguiente_categoria(idx_categoria)
 
@@ -159,7 +156,7 @@ class TauretSpider(scrapy.Spider):
             self.logger.info(f'{"="*60}')
             yield self._make_request(url_sig, cat_sig, url_sig, pagina=1, idx_categoria=idx_siguiente)
         else:
-            self.logger.info('✅ TODAS LAS CATEGORIAS COMPLETADAS.')
+            self.logger.info('TODAS LAS CATEGORIAS COMPLETADAS.')
 
     def categorizar(self, nombre, categoria_destino):
         n = nombre.lower()

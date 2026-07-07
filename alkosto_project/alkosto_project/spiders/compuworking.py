@@ -130,12 +130,12 @@ class ComputerworkingSpider(scrapy.Spider):
                 idx_categoria=idx_siguiente,
             )
         else:
-            self.logger.info('✅ TODAS LAS CATEGORIAS COMPLETADAS.')
+            self.logger.info(' TODAS LAS CATEGORIAS COMPLETADAS.')
 
     def categorizar(self, nombre, categoria_destino):
         n = nombre.lower()
 
-        # --- COMPUTADORES ---
+        #  COMPUTADORES 
         if categoria_destino == 'computadores':
             if any(k in n for k in (
                 'accesorios portátil', 'morral', 'funda', 'cargador',
@@ -144,10 +144,10 @@ class ComputerworkingSpider(scrapy.Spider):
                 return 'otros'
             return 'computadores'
 
-        # --- CELULARES / TABLETS ---
+        # CELULARES / TABLETS 
         if categoria_destino == 'celulares':
             if any(k in n for k in ('tablet', 'tableta', 'ipad', 'tab ', 'tab+', 'samsung galaxy tab')):
-                # FIX 1: quitamos 'lapiz' de aquí — un bundle "tablet + lapiz" sigue siendo tablet
+               
                 if any(k in n for k in (
                     'base para', 'soporte', 'funda', 'cargador', 'cable', 'protector', 'stylus'
                 )):
@@ -162,23 +162,23 @@ class ComputerworkingSpider(scrapy.Spider):
                 return 'otros'
             return 'celulares'
 
-        # --- PANTALLAS ---
+        #PANTALLAS 
         if categoria_destino == 'pantallas':
-            # FIX 2: agregamos 'soporte para televisor', 'soporte pedestal', 'splitter', 'antena'
+            
             if any(k in n for k in (
                 'soporte para tv',
                 'soporte tv',
                 'soporte televisor',
-                'soporte para televisor',   # ← nuevo: "soporte para televisores flexible"
+                'soporte para televisor',   
                 'soporte de techo',
-                'soporte pedestal',         # ← nuevo: "soporte pedestal mobile tv trolley"
+                'soporte pedestal',         
                 'tv stick',
                 'tv box',
                 'decodificador',
                 'receptor',
                 'game stick',
-                'splitter',                 # ← nuevo: "splitter hdmi X puertos"
-                'antena',                   # ← nuevo: "antena tdt"
+                'splitter',              
+                'antena',                  
             )):
                 return 'otros'
 
@@ -187,15 +187,15 @@ class ComputerworkingSpider(scrapy.Spider):
 
             return 'otros'
 
-        # --- AUDIO ---
+        # AUDIO 
         if categoria_destino == 'audio':
             return 'audio'
 
-        # --- CONSOLAS ---
+        # CONSOLAS 
         if categoria_destino == 'consolas':
             return 'consolas'
 
-        # --- IMPRESORAS ---
+        # IMPRESORAS 
         if categoria_destino == 'impresoras':
             return 'impresoras'
 
